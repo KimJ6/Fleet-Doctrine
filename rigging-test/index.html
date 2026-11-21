@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>함선 리깅 테스트</title>
+<style>
+  html, body { margin:0; height:100%; overflow:hidden; background:#080d19; color:#eef3ff; font:14px system-ui,sans-serif; }
+  canvas { display:block; }
+  #panel { position:fixed; top:16px; left:16px; width:min(310px,calc(100vw - 64px)); max-height:calc(100vh - 64px); overflow:auto; padding:16px; background:rgba(11,19,34,.92); border:1px solid #35445d; border-radius:8px; line-height:1.5; }
+  h1 { font-size:17px; margin:0 0 4px; } p { margin:6px 0 12px; color:#bdcbe0; }
+  label { display:block; margin:10px 0 4px; } select,button { font:inherit; color:#eef3ff; background:#273c59; border:1px solid #597397; border-radius:5px; padding:6px 9px; } select { width:100%; } button { cursor:pointer; margin:8px 6px 0 0; } button:hover { background:#38577e; } input[type=range] { width:100%; } input[type=checkbox] { margin-right:7px; } .value { float:right; } #status { color:#a9cce9; } .hint { font-size:12px; color:#aebdd0; }
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="panel">
+  <h1>함선 리깅 테스트</h1>
+  <p>드래그: 시점 회전 · 휠: 확대/축소</p>
+  <div id="status">함선 불러오는 중...</div>
+  <label for="model-file">함선 FBX와 텍스처 선택</label>
+  <input id="model-file" type="file" accept=".fbx,.png,.jpg,.jpeg" multiple>
+  <label for="turret">무장 선택</label>
+  <select id="turret" disabled></select>
+  <label for="yaw"><span id="yaw-label">포탑 회전</span> <span class="value" id="yaw-value">0°</span></label>
+  <input id="yaw" type="range" min="-180" max="180" value="0" disabled>
+  <label for="pitch"><span id="pitch-label">포신 상하 회전</span> <span class="value" id="pitch-value">0°</span></label>
+  <input id="pitch" type="range" min="-45" max="45" value="0" disabled>
+  <details><summary>회전 축과 범위 설정</summary>
+    <label>포탑 축 <select id="yaw-axis"><option>x</option><option>y</option><option>z</option></select></label>
+    <label>포탑 범위 (최소 / 최대 °) <input id="yaw-min" type="number" step="1"> <input id="yaw-max" type="number" step="1"></label>
+    <label>포신 축 <select id="pitch-axis"><option>x</option><option>y</option><option>z</option></select></label>
+    <label>포신 범위 (최소 / 최대 °) <input id="pitch-min" type="number" step="1"> <input id="pitch-max" type="number" step="1"></label>
+    <label>포신 방향 <select id="pitch-sign"><option value="1">정방향</option><option value="-1">반대 방향</option></select></label>
+    <button type="button" id="apply-settings">설정 적용</button>
+    <div class="hint">변경한 값은 현재 페이지에서만 유지됩니다.</div>
+  </details>
+  <div><button id="fire" disabled>선택 무장 발사</button><button id="reset" disabled>전체 초기화</button></div>
+  <label><input id="engines" type="checkbox" checked>엔진 이펙트 표시</label>
+  <label><input id="markers" type="checkbox" checked>엔진·포구 위치 표시</label>
+  <div class="hint">파랑: 엔진 · 주황: 포구. 피벗과 기준점 이름을 읽어 무장을 찾습니다. 범위와 이펙트는 테스트용입니다.</div>
+</div>
+<script>
+  const reportError = (message) => { document.getElementById('status').textContent = `불러오기 실패: ${message}`; };
+  addEventListener('error', (event) => reportError(event.message));
+  addEventListener('unhandledrejection', (event) => reportError(event.reason?.message ?? event.reason));
+  if (location.protocol === 'file:') reportError('상위 작업 폴더에서 로컬 서버를 실행하세요.');
+</script>
+<script type="module" src="./main.js"></script>
+</body>
+</html>
