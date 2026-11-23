@@ -54,7 +54,73 @@ export function slots(f){
 }
 export function initialState(){
   const fleets=[fleet('A','ALLY',vec(-8,0,46),vec(-8,0,0),4),fleet('B','ALLY',vec(8,0,46),vec(8,0,0),4),fleet('E','ENEMY',vec(0,0,-46),vec(0,0,0),8)];
-  for(const f of fleets){const points=slots(f);f.ships.forEach((s,i)=>s.position.copy(points[i]));}return {phase:'PREPARATION',time:0,remaining:CONFIG.duration,fleets,shotEffects:[],attackEvents:[],nextAttackId:1,combatStats:{},scores:{ALLY:0,ENEMY:0},scoreTicks:0,result:null,combat:null};
+  for(const f of fleets){const points=slots(f);f.ships.forEach((s,i)=>s.position.copy(points[i]));}return {phase:'PREPARATION',time:0,remaining:CONFIG.duration,fleets,shotEffects:[],attackEvents:[],nextAttackId:1,combatStats:{},scores:{ALLY:0,ENEMY:0},scoreTicks:0,result:null,combat:null,reserves:[],purchaseResults:{},nextShipId:1,nextFleetId:1,preparationId:0,aiPrepared:-1,assetsAvailable:true,stalledDeployments:0};
+}
+// User-created empty fleets are drafts until a ship or reserve is assigned.
+export function createEmptyFleet(state,sourceId){
+  if(state.phase!=='PREPARATION'||state.result)return {ok:false,reason:'준비 단계에서만 함대를 추가할 수 있습니다.'};
+  const source=state.fleets.find(f=>f.id===sourceId&&f.team==='ALLY');if(!source)return {ok:false,reason:'선택한 함대를 찾을 수 없습니다.'};
+  if(state.fleets.some(f=>f.team==='ALLY'&&f.emptyDraft&&f.ships.length===0))return {ok:false,reason:'먼저 빈 함대에 함선을 배치하세요.'};
+  let id;do{id='ALLY-F'+state.nextFleetId++;}while(state.fleets.some(f=>f.id===id));
+  const created=fleet(id,'ALLY',source.anchor,source.destination,0);created.emptyDraft=true;created.rotation.copy(source.rotation);created.lastHorizontal.copy(source.lastHorizontal);created.spacingLevels={...source.spacingLevels};created.size.copy(sizeForSpacing(0,created.spacingLevels));state.fleets.push(created);return {ok:true,fleet:created};
+}
+// Phase 3 prototype: values are tuning settings, not final game balance.
+export const ECONOMY_CONFIG=Object.freeze({typeId:'light-cruiser-01',price:30,maxOwned:32,spawnSpacing:4,spawnDepth:4,spawnRadius:1.1});
+export function purchaseShip(state,team,typeId=ECONOMY_CONFIG.typeId,requestId){
+  if(typeof requestId!=='string'||!requestId)return {ok:false,reason:'구매 요청이 올바르지 않습니다.'};
+  const key=team+':'+requestId;if(state.purchaseResults[key])return state.purchaseResults[key];
+  let reason='';const price=ECONOMY_CONFIG.price;
+  if(state.phase!=='PREPARATION'||state.result)reason='준비 단계에서만 구매할 수 있습니다.';
+  else if(!['ALLY','ENEMY'].includes(team)||typeId!==ECONOMY_CONFIG.typeId||!Number.isSafeInteger(price)||price<=0)reason='구매 항목이 올바르지 않습니다.';
+  else if(!state.assetsAvailable)reason='사용 가능한 함선 모델이 없습니다.';
+  else if(!Number.isSafeInteger(state.scores[team])||state.scores[team]<price)reason='점수가 부족합니다.';
+  else if(state.reserves.filter(r=>r.team===team&&(r.status==='OWNED'||r.status==='ASSIGNED')).length+state.fleets.filter(f=>f.team===team).flatMap(f=>f.ships).filter(s=>s.alive).length>=ECONOMY_CONFIG.maxOwned)reason='함선 보유 한도에 도달했습니다.';
+  const result=reason?{ok:false,reason}:(()=>{const reserve={id:team+'-R'+state.nextShipId++,team,typeId,status:'OWNED',fleetId:null,reason:''};state.scores[team]-=price;state.reserves.push(reserve);state.stalledDeployments=0;return {ok:true,shipId:reserve.id};})();
+  state.purchaseResults[key]=result;return result;
+}
+export function assignReserve(state,team,shipId,fleetId){
+  if(state.phase!=='PREPARATION'||state.result)return {ok:false,reason:'준비 단계에서만 배정할 수 있습니다.'};
+  const reserve=state.reserves.find(r=>r.id===shipId&&r.team===team&&(r.status==='OWNED'||r.status==='ASSIGNED'));if(!reserve)return {ok:false,reason:'예비 함선을 찾을 수 없습니다.'};
+  if(fleetId!==null&&fleetId!=='NEW'&&!state.fleets.some(f=>f.id===fleetId&&f.team===team))return {ok:false,reason:'같은 진영의 함대를 선택하세요.'};
+  reserve.fleetId=fleetId;reserve.status=fleetId===null?'OWNED':'ASSIGNED';reserve.reason='';state.stalledDeployments=0;return {ok:true};
+}
+function spawnLocation(state,team,radius){
+  const occupied=state.fleets.flatMap(f=>f.ships).filter(s=>s.alive),index=new ShipSpatialIndex(occupied),z=team==='ALLY'?BATTLEFIELD.max.z-radius-ECONOMY_CONFIG.spawnDepth:BATTLEFIELD.min.z+radius+ECONOMY_CONFIG.spawnDepth;
+  for(let ring=0;ring<=10;ring++)for(let x=-ring;x<=ring;x++)for(let y=-ring;y<=ring;y++){
+    if(Math.max(Math.abs(x),Math.abs(y))!==ring)continue;const p=vec(x*ECONOMY_CONFIG.spawnSpacing,y*ECONOMY_CONFIG.spawnSpacing,z);
+    if(!axes.every(axis=>p[axis]-radius>=BATTLEFIELD.min[axis]&&p[axis]+radius<=BATTLEFIELD.max[axis]))continue;
+    if(index.near(p,radius).every(s=>p.distanceToSquared(s.position)>=Math.pow(radius+(s.collisionRadius??ECONOMY_CONFIG.spawnRadius),2)))return p;
+  }return null;
+}
+// prepareView builds detached visual state and exposes commit/rollback; game state is changed only after success.
+export function deployReserves(state,prepareView){
+  if(state.phase!=='PREPARATION'||state.result)return {ok:false,reason:'준비 단계에서만 투입할 수 있습니다.'};
+  let deployed=0,waiting=0;
+  for(const reserve of state.reserves.filter(r=>r.status==='ASSIGNED').sort((a,b)=>a.id.localeCompare(b.id))){
+    let target=reserve.fleetId==='NEW'?null:state.fleets.find(f=>f.id===reserve.fleetId&&f.team===reserve.team);
+    if(!target&&reserve.fleetId!=='NEW'){reserve.reason='대상 함대를 찾을 수 없습니다.';waiting++;continue;}
+    const position=spawnLocation(state,reserve.team,state.spawnRadius??ECONOMY_CONFIG.spawnRadius);if(!position){reserve.reason='시작 면에 배치 공간이 없습니다.';waiting++;continue;}
+    const newId=reserve.fleetId==='NEW'?reserve.team+'-F'+state.nextFleetId:null;
+    const nextFleet=target||fleet(newId,reserve.team,position,vec(0,0,0),0);
+    const unit=ship(reserve.id,nextFleet.id);unit.position.copy(position);if(reserve.team==='ALLY')unit.rotation.setFromAxisAngle(vec(0,1,0),Math.PI);
+    let view;try{view=prepareView(unit);if(!view||typeof view.commit!=='function'||typeof view.rollback!=='function')throw Error('모델을 준비할 수 없습니다.');view.commit();}
+    catch(error){try{view?.rollback();}catch{}reserve.reason='모델 준비 실패: '+error.message;waiting++;continue;}
+    if(!target){state.nextFleetId++;state.fleets.push(nextFleet);target=nextFleet;}
+    target.ships.push(unit);target.size.copy(sizeForSpacing(target.ships.length,target.spacingLevels));reserve.status='ACTIVE';reserve.fleetId=target.id;reserve.reason='';deployed++;
+  }
+  const pending=state.reserves.filter(r=>r.status==='ASSIGNED');
+  if(deployed)state.stalledDeployments=0;else if(waiting&&!state.fleets.some(f=>f.ships.some(s=>s.alive))&&pending.length&&pending.every(r=>r.reason==='시작 면에 배치 공간이 없습니다.'))state.stalledDeployments++;else state.stalledDeployments=0;
+  return {ok:true,deployed,waiting};
+}
+export function prepareEnemyAI(state){
+  if(state.phase!=='PREPARATION'||state.aiPrepared===state.preparationId)return;state.aiPrepared=state.preparationId;
+  const fleet=state.fleets.find(f=>f.team==='ENEMY'&&f.ships.some(s=>s.alive));if(fleet){const ranked=ZONES.map(z=>{const c=zoneCounts(state,z),center=z.min.clone().add(z.max).multiplyScalar(.5);return {z,center,score:z.multiplier*3+(c.ALLY-c.ENEMY)-fleet.anchor.distanceTo(center)*.05};}).sort((a,b)=>b.score-a.score||a.z.id.localeCompare(b.z.id));if(ranked.length)setDestination(fleet,worldToNearestGrid(ranked[0].center));}
+  const pending=state.reserves.filter(r=>r.team==='ENEMY'&&(r.status==='OWNED'||r.status==='ASSIGNED'));
+  if(!pending.length&&state.scores.ENEMY>=ECONOMY_CONFIG.price&&state.scores.ENEMY+ECONOMY_CONFIG.price<SCORE_CONFIG.victory){const p=purchaseShip(state,'ENEMY',ECONOMY_CONFIG.typeId,'ai-'+state.preparationId);if(p.ok)assignReserve(state,'ENEMY',p.shipId,fleet?.id??'NEW');}
+}
+export function checkRecovery(state){
+  if(state.result)return;if(state.stalledDeployments>=3){state.result='DRAW';state.phase='RESULT';return;}const can=team=>state.fleets.some(f=>f.team===team&&f.ships.some(s=>s.alive))||state.reserves.some(r=>r.team===team&&(r.status==='OWNED'||r.status==='ASSIGNED'))||state.scores[team]>=ECONOMY_CONFIG.price;
+  const ally=can('ALLY'),enemy=can('ENEMY');if(!ally||!enemy){state.result=!ally&&!enemy?'DRAW':ally?'ALLY':'ENEMY';state.phase='RESULT';}
 }
 function facing(forward,up){const right=up.clone().cross(forward).normalize();return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(right,forward.clone().cross(right).normalize(),forward));}
 function updateOrientation(f,direction,dt){
@@ -125,7 +191,9 @@ export function step(state,dt=CONFIG.dt){
     });
   }
   combatTick(state,all,dt);
-  state.time+=dt;state.remaining=Math.max(0,state.remaining-dt);if(state.phase==='RUNNING'&&state.remaining<=1e-9){state.remaining=0;state.phase='PREPARATION';}
+  if(!state.result)checkRecovery(state);
+  if(!state.result&&!state.fleets.some(f=>f.ships.some(s=>s.alive))){state.phase='PREPARATION';state.preparationId++;}
+  state.time+=dt;state.remaining=Math.max(0,state.remaining-dt);if(state.phase==='RUNNING'&&state.remaining<=1e-9){state.remaining=0;state.phase='PREPARATION';state.preparationId++;}
 }
 export function start(state){if(state.phase!=='PREPARATION')return;if(state.remaining<=0)state.remaining=CONFIG.duration;state.phase='RUNNING';}
 
@@ -163,6 +231,6 @@ function combatTick(state,ships,dt){
   }
   state.combatStats=stats;
   // Apply after every shot has been resolved against the same live-ship snapshot.
-  for(const [ship,value] of damage){ship.hp=Math.max(0,ship.hp-value);if(ship.hp===0)ship.alive=false;}
+  for(const [ship,value] of damage){ship.hp=Math.max(0,ship.hp-value);if(ship.hp===0){ship.alive=false;const record=state.reserves.find(r=>r.id===ship.id);if(record)record.status='DESTROYED';}}
   state.scoreTicks++;if(state.scoreTicks>=SCORE_CONFIG.tickCount){state.scoreTicks-=SCORE_CONFIG.tickCount;scoreZones(state);}
 }

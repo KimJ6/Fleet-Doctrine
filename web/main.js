@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { CONFIG, COMMAND_GRID, BATTLEFIELD, ZONES, SCORE_CONFIG, zoneCounts, captureMuzzleChain, muzzlePoseFromData, gridToWorld, worldToNearestGrid, insideBattlefield, setDestination, initialState, slots, dimensions, validateSize, sizeForSpacing, step, start } from './simulation.js';
+import { CONFIG, COMMAND_GRID, BATTLEFIELD, ZONES, SCORE_CONFIG, zoneCounts, captureMuzzleChain, muzzlePoseFromData, gridToWorld, worldToNearestGrid, insideBattlefield, setDestination, ECONOMY_CONFIG, createEmptyFleet, purchaseShip, assignReserve, deployReserves, prepareEnemyAI, checkRecovery, initialState, slots, grid, dimensions, validateSize, sizeForSpacing, step, start } from './simulation.js?v=phase3-20261124-2';
 import { discoverRig, initializeWeapons, applyPose, pitchRange } from '../rigging-test/rig-control.js';
 import { RigSafety } from '../rigging-test/rig-safety.js';
 
@@ -49,6 +49,7 @@ class GameRigSafety extends RigSafety {
 const $ = id => document.getElementById(id);
 const state = initialState();
 const friendly = state.fleets.filter(f => f.team === 'ALLY');
+let prepareUnitView=null, purchaseCounter=0;
 let selected = friendly[0];
 let draft = null;
 let activeCamera;
@@ -59,12 +60,12 @@ document.body.appendChild(renderer.domElement);
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x080e1b);
 const camera=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,0.1,1000);camera.position.set(48,40,65);
 activeCamera=camera; pickingCamera=new THREE.OrthographicCamera(-75,75,75,-75,0.1,1000);
-const orbit=new OrbitControls(camera,renderer.domElement);orbit.enableDamping=true;orbit.target.set(0,0,4);
+const orbit=new OrbitControls(camera,renderer.domElement);orbit.enableDamping=true;orbit.target.set(0,0,4);orbit.minDistance=4;orbit.maxDistance=160;
 const cameraKeys = new Set();
 const cameraKeyCodes = new Set(['KeyW','KeyA','KeyS','KeyD','KeyR','KeyF']);
 const editable = element => element instanceof HTMLElement && (element.matches('input, textarea, select, button, summary') || element.isContentEditable);
 window.addEventListener('keydown', event => {
-  if (draft || !cameraKeyCodes.has(event.code) || editable(event.target) || event.altKey || event.ctrlKey || event.metaKey) return;
+  if ((draft && (event.code==='KeyR'||event.code==='KeyF')) || !cameraKeyCodes.has(event.code) || editable(event.target) || event.altKey || event.ctrlKey || event.metaKey) return;
   event.preventDefault(); cameraKeys.add(event.code);
 });
 window.addEventListener('keyup', event => cameraKeys.delete(event.code));
@@ -183,7 +184,7 @@ function resizePickingCamera(){
 function setPickingView(){
   if(!draft)return;resizePickingCamera();
   if(draft.phase==='PICK_XZ'){
-    const a=selected.anchor;pickingCamera.position.set(a.x,a.y+300,a.z);pickingCamera.up.set(0,0,-1);pickingCamera.lookAt(a.x,a.y,a.z);
+    const a=selected.anchor,c=draft.xzCenter||{x:a.x,z:a.z};pickingCamera.position.set(c.x,a.y+300,c.z);pickingCamera.up.set(0,0,-1);pickingCamera.lookAt(c.x,a.y,c.z);
     pickGrid.rotation.set(0,0,0);pickGrid.position.set(0,a.y,0);pickGuide.visible=false;$('pick-title').textContent='1 / 2 수평 위치 선택 (XZ)';
   }else{
     const x=COMMAND_GRID.origin.x+draft.ix*COMMAND_GRID.spacing,z=COMMAND_GRID.origin.z+draft.iz*COMMAND_GRID.spacing,y=selected.anchor.y;
@@ -199,10 +200,10 @@ function startPicking(){
   // projections differ away from that plane, so this is an approximate match.
   const viewDistance=camera.position.distanceTo(orbit.target);
   const visibleHeight=2*Math.tan(THREE.MathUtils.degToRad(camera.getEffectiveFOV())/2)*viewDistance;
-  pickingCamera.zoom=THREE.MathUtils.clamp(150/Math.max(visibleHeight,1e-6),0.7,8);
+  pickingCamera.zoom=THREE.MathUtils.clamp(150/Math.max(visibleHeight,1e-6),1.25,8);
   resizePickingCamera();
   draft={phase:'PICK_XZ',fleetId:selected.id,ix:null,iz:null,hover:null,snapshot:{position:camera.position.clone(),quaternion:camera.quaternion.clone(),zoom:camera.zoom,target:orbit.target.clone(),enabled:orbit.enabled}};
-  cameraKeys.clear();orbit.enabled=false;activeCamera=pickingCamera;pickGrid.visible=true;pickMarker.visible=false;$('pick-panel').hidden=false;
+  cameraKeys.clear();if(document.activeElement instanceof HTMLElement)document.activeElement.blur();orbit.enabled=false;activeCamera=pickingCamera;pickGrid.visible=true;pickMarker.visible=false;$('pick-panel').hidden=false;
   setPickingView();syncUI();setError('');
 }
 function endPicking(){
@@ -230,7 +231,7 @@ function showPick(event){
 function commitPick(event){
   if(!draft)return;let sample;try{sample=samplePick(event);}catch{sample=null;}
   if(!sample){setError('전장 안의 유효한 격자 교차점을 선택하세요.');return;}
-  if(draft.phase==='PICK_XZ'){draft.ix=sample.point.ix;draft.iz=sample.point.iz;draft.phase='PICK_Y';draft.hover=null;pickMarker.visible=false;setPickingView();setError('');return;}
+  if(draft.phase==='PICK_XZ'){draft.xzCenter={x:pickingCamera.position.x,z:pickingCamera.position.z};draft.ix=sample.point.ix;draft.iz=sample.point.iz;draft.phase='PICK_Y';draft.hover=null;pickMarker.visible=false;setPickingView();setError('');return;}
   if(state.phase!=='PREPARATION'||selected.id!==draft.fleetId){setError('선택 함대 또는 준비 단계가 변경되어 목표를 지정할 수 없습니다.');return;}
   try{setDestination(selected,sample.point);setError('');endPicking();refreshInputs();updatePreview();}catch(e){setError(e.message);}
 }
@@ -239,7 +240,7 @@ $('pick-cancel').addEventListener('click',()=>{endPicking();setError('');});
 $('pick-back').addEventListener('click',()=>{if(draft?.phase==='PICK_Y'){draft.phase='PICK_XZ';draft.ix=null;draft.iz=null;draft.hover=null;pickMarker.visible=false;setPickingView();setError('');}});
 window.addEventListener('keydown',event=>{if(event.key==='Escape'&&draft){event.preventDefault();endPicking();setError('');}});
 renderer.domElement.addEventListener('pointermove',showPick);
-renderer.domElement.addEventListener('wheel',event=>{if(!draft)return;event.preventDefault();pickingCamera.zoom=THREE.MathUtils.clamp(pickingCamera.zoom*Math.exp(-event.deltaY*0.001),0.7,8);pickingCamera.updateProjectionMatrix();},{passive:false});
+renderer.domElement.addEventListener('wheel',event=>{if(!draft)return;event.preventDefault();pickingCamera.zoom=THREE.MathUtils.clamp(pickingCamera.zoom*Math.exp(-event.deltaY*0.001),1.25,8);pickingCamera.updateProjectionMatrix();},{passive:false});
 
 const indicatorPoints = Array.from({ length: 48 }, (_, i) => { const a = i * Math.PI * 2 / 48; return new THREE.Vector3(Math.cos(a) * 1.3, Math.sin(a) * 1.3, 0); });
 const selectedIndicator = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(indicatorPoints), new THREE.LineBasicMaterial({ color: 0x74dcff, depthTest: false }));
@@ -254,10 +255,9 @@ const planeDefinitions = {
   XZ: { horizontal: 'x', vertical: 'z', sign: -1, direction: [0, 1, 0], label: '오른쪽 +X · 위 -Z · 높이 Y' },
 };
 function selectFleet(fleet) {
-  if (draft || !fleet || fleet.team !== 'ALLY') { if(draft) $('fleet').value=selected.id; return; }
+  if (draft || !fleet || fleet.team !== 'ALLY') return;
   selected = fleet;
-  $('fleet').value = fleet.id;
-  setError(''); refreshInputs(); refreshShips(); updatePreview();
+  chosenShip=null; setError(''); refreshFleetTabs(); refreshInputs(); refreshShips(); refreshEconomy(); updatePreview();
   $('fleet-info').textContent=`아군 ${selected.id} 함대 · 생존 ${selected.ships.filter(s=>s.alive).length}/${selected.ships.length}척 · 점수 ${state.scores.ALLY} : ${state.scores.ENEMY}`;
   drawMinimap();
 }
@@ -303,6 +303,7 @@ function drawMinimap() {
   ctx.beginPath();ctx.moveTo(tx-5,ty-5);ctx.lineTo(tx+5,ty+5);ctx.moveTo(tx+5,ty-5);ctx.lineTo(tx-5,ty+5);ctx.stroke();
   mapHitTargets = [];
   for(const f of state.fleets){
+    if(f.emptyDraft&&!f.ships.some(s=>s.alive))continue;
     const [x,y] = project(f.anchor); const ally = f.team === 'ALLY';
     ctx.fillStyle=ally?'#59c8ff':'#ff7777';ctx.strokeStyle=f===selected?'#ffffff':'#0c1a27';ctx.lineWidth=f===selected?2.5:1;
     ctx.beginPath();if(ally)ctx.arc(x,y,5,0,Math.PI*2);else {ctx.moveTo(x,y-6);ctx.lineTo(x+6,y);ctx.lineTo(x,y+6);ctx.lineTo(x-6,y);ctx.closePath();}ctx.fill();ctx.stroke();
@@ -318,17 +319,16 @@ mapCanvas.addEventListener('click', event => {
   if(nearest && !draft)selectFleet(nearest.fleet);
 });
 const picker = new THREE.Raycaster(), pointer = new THREE.Vector2();
-let pointerStart = null;
-renderer.domElement.addEventListener('pointerdown', event => { if(event.button===0)pointerStart={x:event.clientX,y:event.clientY}; });
-renderer.domElement.addEventListener('pointerup', event => {
-  if(!pointerStart || Math.hypot(event.clientX-pointerStart.x,event.clientY-pointerStart.y)>4){pointerStart=null;return;}
-  pointerStart=null;
-  if(draft){commitPick(event);return;}
-  const rect=renderer.domElement.getBoundingClientRect();pointer.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);
-  picker.setFromCamera(pointer,camera);
-  const hit=picker.intersectObjects([...views.values()],true)[0];
-  if(!hit)return;let object=hit.object;while(object && !object.userData.shipId)object=object.parent;
-  if(object){const fleet=state.fleets.find(f=>f.ships.some(ship=>ship.id===object.userData.shipId));selectFleet(fleet);}
+let pointerStart=null;
+function panPicking(dx,dy){if(!draft)return;const scale=150/(Math.max(1,renderer.domElement.clientHeight)*pickingCamera.zoom);if(draft.phase==='PICK_XZ'){pickingCamera.position.x=THREE.MathUtils.clamp(pickingCamera.position.x-dx*scale,BATTLEFIELD.min.x,BATTLEFIELD.max.x);pickingCamera.position.z=THREE.MathUtils.clamp(pickingCamera.position.z-dy*scale,BATTLEFIELD.min.z,BATTLEFIELD.max.z);}else{pickingCamera.position.z=THREE.MathUtils.clamp(pickingCamera.position.z-dx*scale,BATTLEFIELD.min.z,BATTLEFIELD.max.z);pickingCamera.position.y=THREE.MathUtils.clamp(pickingCamera.position.y+dy*scale,BATTLEFIELD.min.y,BATTLEFIELD.max.y);}pickingCamera.updateMatrixWorld(true);pickMarker.visible=false;}
+function movePicking(dt){if(!draft)return;const dx=(cameraKeys.has('KeyD')?1:0)-(cameraKeys.has('KeyA')?1:0),dy=(cameraKeys.has('KeyW')?1:0)-(cameraKeys.has('KeyS')?1:0);if(dx||dy){const speed=18*dt,scale=150/(Math.max(1,renderer.domElement.clientHeight)*pickingCamera.zoom);panPicking(-dx*speed/scale,dy*speed/scale);}}
+renderer.domElement.addEventListener('pointerdown',event=>{if(event.button!==0)return;pointerStart={x:event.clientX,y:event.clientY,lastX:event.clientX,lastY:event.clientY,dragged:false};if(draft)renderer.domElement.setPointerCapture(event.pointerId);});
+renderer.domElement.addEventListener('pointermove',event=>{if(!draft||!pointerStart)return;const distance=Math.hypot(event.clientX-pointerStart.x,event.clientY-pointerStart.y);if(distance>4)pointerStart.dragged=true;if(pointerStart.dragged){panPicking(event.clientX-pointerStart.lastX,event.clientY-pointerStart.lastY);pointerStart.lastX=event.clientX;pointerStart.lastY=event.clientY;}});
+renderer.domElement.addEventListener('pointerup',event=>{
+  if(!pointerStart||pointerStart.dragged||Math.hypot(event.clientX-pointerStart.x,event.clientY-pointerStart.y)>4){pointerStart=null;return;}
+  pointerStart=null;if(draft){commitPick(event);return;}
+  const rect=renderer.domElement.getBoundingClientRect();pointer.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);picker.setFromCamera(pointer,camera);
+  const hit=picker.intersectObjects([...views.values()],true)[0];if(!hit)return;let object=hit.object;while(object&&!object.userData.shipId)object=object.parent;if(object){const fleet=state.fleets.find(f=>f.ships.some(ship=>ship.id===object.userData.shipId));selectFleet(fleet);}
 });
 renderer.domElement.addEventListener('pointercancel',()=>{pointerStart=null;});
 function updatePreview(){
@@ -342,72 +342,84 @@ function updatePreview(){
 function refreshInputs(){
   $('destination-info').textContent=`현재 목적지: (${selected.destination.x}, ${selected.destination.y}, ${selected.destination.z})`;
   const counts=dimensions(selected.ships.length);
-  $('formation-info').textContent=`이동 격자 (${counts.join(' × ')})`;
+
   for(const [i,axis] of ['x','y','z'].entries()) {
-    const field=$(`spacing-${axis}`);field.value=selected.spacingLevels[axis];
-    field.disabled=state.phase!=='PREPARATION'||!!draft||counts[i]<=1;
+    const field=$(`spacing-${axis}`);field.disabled=state.phase!=='PREPARATION'||!!draft||counts[i]<=1;
     field.title=counts[i]<=1?'이 방향은 한 층이므로 간격이 적용되지 않습니다.':'';
+    for(const radio of field.querySelectorAll('input'))radio.checked=radio.value===selected.spacingLevels[axis];
   }
 }
-let draggedShip=null;
+let draggedShip=null,draggedReserve=null,chosenShip=null;
+function refreshFleetTabs(){
+  const tabs=$('fleet-tabs');tabs.replaceChildren();
+  for(const fleet of friendly){const button=document.createElement('button');button.type='button';button.textContent=fleet.id+' 함대 · '+fleet.ships.filter(s=>s.alive).length+'/'+fleet.ships.length;button.setAttribute('role','tab');button.setAttribute('aria-selected',String(fleet===selected));button.setAttribute('aria-pressed',String(fleet===selected));button.disabled=!!draft;
+    button.addEventListener('click',()=>{if(chosenShip&&fleet!==selected){transfer(chosenShip,fleet);chosenShip=null;refreshShips();}else selectFleet(fleet);});
+    button.addEventListener('dragover',e=>{if((draggedReserve||(draggedShip&&fleet!==selected))&&state.phase==='PREPARATION'&&!draft){e.preventDefault();button.classList.add('drop-target');}});
+    button.addEventListener('dragleave',()=>button.classList.remove('drop-target'));
+    button.addEventListener('drop',e=>{e.preventDefault();button.classList.remove('drop-target');if(draggedReserve){const result=assignReserve(state,'ALLY',draggedReserve,fleet.id);setError(result.ok?'':result.reason);refreshEconomy();}else if(draggedShip&&fleet!==selected)transfer(draggedShip.id,fleet);draggedShip=null;draggedReserve=null;});tabs.append(button);
+  }
+  const add=document.createElement('button');add.type='button';add.className='fleet-add';add.textContent='+';add.title='새 함대 추가';add.setAttribute('aria-label','새 함대 추가');add.disabled=state.phase!=='PREPARATION'||!!draft;add.addEventListener('click',()=>{const result=createEmptyFleet(state,selected.id);if(!result.ok){setError(result.reason);return;}friendly.push(result.fleet);selectFleet(result.fleet);});tabs.append(add);
+}
+function swapShips(a,b){if(state.phase!=='PREPARATION'||draft||a===b)return;const from=selected.ships.findIndex(s=>s.id===a),to=selected.ships.findIndex(s=>s.id===b);if(from<0||to<0)return;[selected.ships[from],selected.ships[to]]=[selected.ships[to],selected.ships[from]];chosenShip=null;refreshShips();updatePreview();}
 function refreshShips(){
-  const list=$('ships');list.replaceChildren();
-  selected.ships.forEach((ship,i)=>{
-    const row=document.createElement('div');row.className='ship';row.dataset.shipId=ship.id;
-    const canEdit=state.phase==='PREPARATION'&&!draft;row.draggable=canEdit;
-    const handle=document.createElement('span');handle.className='drag-handle';handle.textContent='⠿';handle.setAttribute('aria-hidden','true');row.append(handle);
-    const name=document.createElement('span');name.textContent=`${i+1}. 함선 ${ship.id} · ${ship.alive ? `체력 ${ship.hp}` : '격침'}`;row.append(name);
-    const move=document.createElement('button');move.textContent='다른 함대로';move.disabled=!canEdit||selected.ships.length<=1;move.addEventListener('click',()=>transfer(ship));row.append(move);
-    row.addEventListener('dragstart',event=>{
-      if(!canEdit)return event.preventDefault();draggedShip={id:ship.id,fleetId:selected.id};event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',ship.id);row.classList.add('dragging');
-    });
-    row.addEventListener('dragover',event=>{
-      if(!draggedShip||draggedShip.fleetId!==selected.id||draggedShip.id===ship.id||state.phase!=='PREPARATION'||draft)return;
-      event.preventDefault();event.dataTransfer.dropEffect='move';const after=event.clientY>row.getBoundingClientRect().top+row.getBoundingClientRect().height/2;
-      row.classList.toggle('drop-after',after);row.classList.toggle('drop-before',!after);
-    });
-    row.addEventListener('dragleave',()=>row.classList.remove('drop-after','drop-before'));
-    row.addEventListener('drop',event=>{
-      event.preventDefault();const after=event.clientY>row.getBoundingClientRect().top+row.getBoundingClientRect().height/2;
-      if(draggedShip&&draggedShip.fleetId===selected.id&&state.phase==='PREPARATION'&&!draft){
-        const from=selected.ships.findIndex(item=>item.id===draggedShip.id),target=selected.ships.findIndex(item=>item.id===ship.id);
-        if(from>=0&&target>=0&&from!==target){const [item]=selected.ships.splice(from,1);const dest=selected.ships.findIndex(other=>other.id===ship.id)+(after?1:0);selected.ships.splice(dest,0,item);}
-      }
-      draggedShip=null;refreshShips();updatePreview();
-    });
-    row.addEventListener('dragend',()=>{draggedShip=null;row.classList.remove('dragging');for(const item of list.children)item.classList.remove('drop-before','drop-after');});
-    list.append(row);
+  const list=$('ships');list.replaceChildren();const offsets=grid(selected.ships.length,selected.size),layers=new Map();
+  offsets.forEach((p,i)=>{const key=p.y.toFixed(6);if(!layers.has(key))layers.set(key,[]);layers.get(key).push({ship:selected.ships[i],index:i});});
+  const ordered=[...layers.entries()].sort((a,b)=>Number(b[0])-Number(a[0]));
+  ordered.forEach(([,entries],layer)=>{const line=document.createElement('div');line.className='ship-layer';const label=document.createElement('span');label.className='layer-label';label.textContent=ordered.length===1?'중층':layer===0?'상층':layer===ordered.length-1?'하층':'중층';line.append(label);
+    for(const {ship} of entries){const card=document.createElement('button');card.type='button';card.className='ship'+(ship.alive?'':' dead')+(chosenShip===ship.id?' selected':'');card.dataset.shipId=ship.id;card.draggable=state.phase==='PREPARATION'&&!draft&&ship.alive;card.title=ship.alive?'함선 '+ship.id+' · 체력 '+ship.hp+'/'+ship.maxHp:'격침된 슬롯';card.setAttribute('aria-label',card.title);card.append(document.createTextNode(ship.alive?ship.id:'빈 슬롯'));const health=document.createElement('span');health.className='ship-health';health.textContent=ship.alive?'체력 '+ship.hp:'격침';card.append(health);
+      card.addEventListener('click',()=>{if(state.phase!=='PREPARATION'||draft)return;if(chosenShip&&chosenShip!==ship.id)swapShips(chosenShip,ship.id);else {chosenShip=ship.alive?(chosenShip===ship.id?null:ship.id):null;refreshShips();}});
+      card.addEventListener('dragstart',e=>{draggedShip={id:ship.id,fleetId:selected.id};chosenShip=null;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',ship.id);});
+      card.addEventListener('dragover',e=>{if(draggedShip&&draggedShip.id!==ship.id){e.preventDefault();card.classList.add('drop-target');}});card.addEventListener('dragleave',()=>card.classList.remove('drop-target'));
+      card.addEventListener('drop',e=>{e.preventDefault();if(draggedShip&&draggedShip.fleetId===selected.id)swapShips(draggedShip.id,ship.id);draggedShip=null;});card.addEventListener('dragend',()=>{draggedShip=null;document.querySelectorAll('.drop-target').forEach(n=>n.classList.remove('drop-target'));});line.append(card);
+    }list.append(line);
   });
 }
-function transfer(ship){
-  if(state.phase!=='PREPARATION'||draft||selected.ships.length<=1)return;
-  const other=friendly.find(f=>f!==selected);
-  const otherSize=sizeForSpacing(other.ships.length+1,other.spacingLevels);
-  if(!validateSize(other.ships.length+1,otherSize)){setError('대상 함대의 간격을 확인하세요.');return;}
-  selected.ships.splice(selected.ships.indexOf(ship),1);other.ships.push(ship);ship.fleetId=other.id;
-  selected.size.copy(sizeForSpacing(selected.ships.length,selected.spacingLevels));other.size.copy(otherSize);
-  setError('');refreshInputs();refreshShips();updatePreview();
+function removeEmptyFleet(fleet){
+  if(fleet.ships.some(s=>s.alive))return false;
+  for(const unit of fleet.ships){const rig=rigs.get(unit.id),view=views.get(unit.id);if(view)scene.remove(view);rig?.safety.dispose();rigs.delete(unit.id);views.delete(unit.id);}
+  for(const reserve of state.reserves)if(reserve.status==='ASSIGNED'&&reserve.fleetId===fleet.id){reserve.status='OWNED';reserve.fleetId=null;reserve.reason='함대가 삭제되어 배정이 해제되었습니다.';}
+  const i=state.fleets.indexOf(fleet);if(i>=0)state.fleets.splice(i,1);const j=friendly.indexOf(fleet);if(j>=0)friendly.splice(j,1);return true;
+}
+function transfer(id,other){
+  if(state.phase!=='PREPARATION'||draft||!other||other===selected)return;const source=selected,unit=source.ships.find(s=>s.id===id);if(!unit?.alive)return;
+  const otherSize=sizeForSpacing(other.ships.length+1,other.spacingLevels);if(!validateSize(other.ships.length+1,otherSize)){setError('대상 함대의 간격을 확인하세요.');return;}
+  source.ships.splice(source.ships.indexOf(unit),1);other.ships.push(unit);unit.fleetId=other.id;other.emptyDraft=false;source.size.copy(sizeForSpacing(source.ships.length,source.spacingLevels));other.size.copy(otherSize);chosenShip=null;
+  if(!source.ships.some(s=>s.alive)){removeEmptyFleet(source);selected=other;}
+  setError('');refreshFleetTabs();refreshInputs();refreshShips();refreshEconomy();updatePreview();
 }
 for(const axis of ['x','y','z'])$(`spacing-${axis}`).addEventListener('change',event=>{
   if(state.phase!=='PREPARATION'||draft){refreshInputs();return;}
-  const levels={...selected.spacingLevels,[axis]:event.target.value};
+  if(!event.target.matches('input[type=radio]'))return;const levels={...selected.spacingLevels,[axis]:event.target.value};
   const size=sizeForSpacing(selected.ships.length,levels);
   if(!validateSize(selected.ships.length,size)){setError('이 간격은 현재 대형에 적용할 수 없습니다.');refreshInputs();return;}
   selected.spacingLevels=levels;selected.size.copy(size);setError('');refreshInputs();updatePreview();
 });
 function syncUI(){
   const prep=state.phase==='PREPARATION', editing=!!draft;
-  $('fleet').disabled=editing;
+  refreshFleetTabs();
   $('pick-position').disabled=!prep||editing;
   for(const button of document.querySelectorAll('[data-camera-plane]'))button.disabled=editing;
-  $('start').disabled=!prep||editing;$('pause').disabled=state.phase!=='RUNNING';
-  $('hud').textContent=state.phase==='RESULT'?`결과: ${state.result==='DRAW'?'무승부':state.result==='ALLY'?'아군 승리':'적군 승리'}`:prep?'준비 단계':`전투 중 · ${state.remaining.toFixed(1)}초`;
-  $('status').textContent=state.phase==='RESULT'?'전투 결과 확정':prep?'준비 단계 — 명령을 설정하세요':`자동 전투 중 · ${state.remaining.toFixed(1)}초`;
-  refreshInputs();refreshShips();
+  $('start').disabled=!prep||editing;$('pause').disabled=state.phase!=='RUNNING';$('start').hidden=state.phase==='RUNNING';$('pause').hidden=state.phase!=='RUNNING';
+  $('hud').textContent=state.phase==='RESULT'?`결과: ${state.result==='DRAW'?'무승부':state.result==='ALLY'?'아군 승리':'적군 승리'}`:prep?`준비 · 아군 ${state.scores.ALLY} : ${state.scores.ENEMY} 적군 / ${SCORE_CONFIG.victory}`:`전투 중 · ${state.remaining.toFixed(1)}초`;
+  refreshInputs();refreshShips();refreshEconomy();
 }
-$('fleet').addEventListener('change',()=>selectFleet(friendly.find(f=>f.id===$('fleet').value)));
-$('start').addEventListener('click',()=>{start(state);if([...rigs.values()].some(r=>!r.safe))setError('검증되지 않은 무장의 사격이 보류되었습니다.');else setError('');syncUI();});
-$('pause').addEventListener('click',()=>{if(state.phase==='RUNNING')state.phase='PREPARATION';syncUI();});
+function refreshEconomy(){
+  const prep=state.phase==='PREPARATION'&&!draft;$('buy-ship').disabled=!prep||state.scores.ALLY<ECONOMY_CONFIG.price||!prepareUnitView||!state.assetsAvailable;
+  $('buy-ship').title=!state.assetsAvailable?'사용 가능한 함선 모델이 없습니다.':state.scores.ALLY<ECONOMY_CONFIG.price?'점수가 부족합니다.':'';
+  $('purchase-info').textContent='가격 '+ECONOMY_CONFIG.price+' · 구매 후 '+Math.max(0,state.scores.ALLY-ECONOMY_CONFIG.price)+' 점';
+  const list=$('reserves');list.replaceChildren();for(const reserve of state.reserves.filter(r=>r.team==='ALLY'&&(r.status==='OWNED'||r.status==='ASSIGNED'))){const item=document.createElement('div');item.className='reserve-item';item.draggable=prep;item.addEventListener('dragstart',e=>{draggedReserve=reserve.id;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',reserve.id);});item.addEventListener('dragend',()=>{draggedReserve=null;document.querySelectorAll('.drop-target').forEach(n=>n.classList.remove('drop-target'));});const label=document.createElement('span');label.textContent=reserve.id+' · '+(reserve.status==='OWNED'?'미배정':reserve.fleetId==='NEW'?'신규 함대 대기':reserve.fleetId+' 투입 대기')+(reserve.reason?' · '+reserve.reason:'');item.append(label);
+    const bind=(text,target)=>{const button=document.createElement('button');button.textContent=text;button.disabled=!prep;button.addEventListener('click',()=>{const result=assignReserve(state,'ALLY',reserve.id,target);setError(result.ok?'':result.reason);refreshEconomy();});item.append(button);};
+    bind('배정: '+selected.id,selected.id);bind('신규 함대','NEW');if(reserve.status==='ASSIGNED')bind('배정 취소',null);list.append(item);
+  }
+}
+$('buy-ship').addEventListener('click',()=>{const result=purchaseShip(state,'ALLY',ECONOMY_CONFIG.typeId,'ui-'+(++purchaseCounter));setError(result.ok?'':result.reason);refreshEconomy();syncUI();});
+$('start').addEventListener('click',()=>{
+  if(state.phase!=='PREPARATION'||draft||!prepareUnitView)return;
+  for(const fleet of [...friendly])if(fleet.emptyDraft&&!fleet.ships.length&&!state.reserves.some(r=>r.status==='ASSIGNED'&&r.fleetId===fleet.id)){removeEmptyFleet(fleet);if(selected===fleet)selected=friendly[0];}
+  prepareEnemyAI(state);const result=deployReserves(state,prepareUnitView);friendly.splice(0,friendly.length,...state.fleets.filter(f=>f.team==='ALLY'));checkRecovery(state);if(!state.result)start(state);
+  const failed=state.reserves.filter(r=>r.status==='ASSIGNED'&&r.reason);setError(failed.length?'일부 증원 투입 대기: '+failed.map(r=>r.reason).join('；'):[...rigs.values()].some(r=>!r.safe)?'검증되지 않은 무장의 사격이 보류되었습니다.':'');refreshEconomy();syncUI();
+});
+$('pause').addEventListener('click',()=>{if(state.phase==='RUNNING'){state.phase='PREPARATION';state.preparationId++;}refreshEconomy();syncUI();});
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);resizePickingCamera();});
 try{
   const assetUrl=`${assetRoot}Light_cruiser_01_rigged.fbx`;const model=await new FBXLoader(manager).loadAsync(assetUrl);
@@ -418,16 +430,20 @@ try{
   if(!Number.isFinite(max)||max<=0)throw new Error('FBX의 크기가 올바르지 않습니다.');
   model.position.sub(center);
   const corrected=new THREE.Group();corrected.add(model);corrected.scale.setScalar(2.2/max);corrected.rotation.y=Math.PI/2;
-  for(const f of state.fleets)for(const s of f.ships){
-    s.collisionRadius=size.length()/max*1.1;
-    const view=new THREE.Group();view.userData.shipId=s.id;view.add(corrected.clone(true));scene.add(view);views.set(s.id,view);view.position.copy(s.position);view.quaternion.copy(s.rotation);view.updateWorldMatrix(true,true);
-    const rig=discoverRig(view),weapons=initializeWeapons(view,rig);s.weapons=weapons.map((weapon,i)=>({id:s.id+':'+i,shipId:s.id,yaw:weapon.yaw,pitch:weapon.pitch,cooldown:0,targetId:null}));for(let i=0;i<weapons.length;i++){const weapon=weapons[i];weapon.combatState=s.weapons[i];weapon.muzzleChains=weapon.muzzleNodes.map(muzzle=>captureMuzzleChain(view,weapon,muzzle));}const safety=new GameRigSafety(view,weapons);safety.confirmedNeutral=neutralConfirmed;if(neutralConfirmed)safety.captureConfirmedNeutralContacts();rigs.set(s.id,{view,weapons,safety,assetHash:digest,safe:neutralConfirmed&&rig.muzzleCount>0,reason:neutralConfirmed?'':'모델 해시가 일치하지 않아 사격 보류'});
-  }
+  state.spawnRadius=size.length()/max*1.1;
+  prepareUnitView=(s,options={})=>{
+    s.collisionRadius=state.spawnRadius;const view=new THREE.Group();view.userData.shipId=s.id;view.add(corrected.clone(true));view.position.copy(s.position);view.quaternion.copy(s.rotation);view.updateWorldMatrix(true,true);
+    const rig=discoverRig(view),weapons=initializeWeapons(view,rig);s.weapons=weapons.map((weapon,i)=>({id:s.id+':'+i,shipId:s.id,yaw:weapon.yaw,pitch:weapon.pitch,cooldown:0,targetId:null}));for(let i=0;i<weapons.length;i++){const weapon=weapons[i];weapon.combatState=s.weapons[i];weapon.muzzleChains=weapon.muzzleNodes.map(muzzle=>captureMuzzleChain(view,weapon,muzzle));}
+    const safety=new GameRigSafety(view,weapons);safety.confirmedNeutral=neutralConfirmed;if(neutralConfirmed)safety.captureConfirmedNeutralContacts();const entry={view,weapons,safety,assetHash:digest,safe:neutralConfirmed&&rig.muzzleCount>0,reason:neutralConfirmed?'':'모델 해시가 일치하지 않아 사격 보류'};
+    if(!entry.safe&&!options.allowUnsafe){safety.dispose();throw Error('검증된 리깅 모델이 아닙니다.');}
+    return {commit(){scene.add(view);views.set(s.id,view);rigs.set(s.id,entry);},rollback(){scene.remove(view);views.delete(s.id);rigs.delete(s.id);safety.dispose();}};
+  };
+  for(const f of state.fleets)for(const s of f.ships)prepareUnitView(s,{allowUnsafe:true}).commit();
+  state.assetsAvailable=neutralConfirmed&&[...rigs.values()].every(r=>r.safe);
   state.combat=battleCombat;if(!neutralConfirmed)setError('검증된 리깅 모델과 일치하지 않아 사격을 보류합니다.');
-  for(const f of friendly)$('fleet').add(new Option(`아군 ${f.id} 함대`,f.id));
-  $('fleet').value=selected.id;refreshInputs();syncUI();updatePreview();
+  refreshInputs();syncUI();updatePreview();
 }catch(e){setError(`모델을 불러오지 못했습니다: ${e.message}. 상위 폴더에서 서버를 실행하고 ship assets/rigged 경로를 확인하세요.`);console.error(e);}
-let last=null,acc=0,lastPhase=state.phase;
+let last=null,acc=0,lastPhase=state.phase,lastFleetStatus='';
 renderer.setAnimationLoop(ms=>{
   if(last===null)last=ms;const elapsed=Math.min((ms-last)/1000,CONFIG.maxFrame);last=ms;
   if(state.phase==='RUNNING'){
@@ -435,6 +451,7 @@ renderer.setAnimationLoop(ms=>{
     if(steps===CONFIG.maxSteps&&acc>=CONFIG.dt)acc=0;
   }else acc=0;
   if(lastPhase!==state.phase){lastPhase=state.phase;syncUI();}
+  const fleetStatus=friendly.flatMap(f=>f.ships.map(s=>s.id+':'+s.hp+':'+s.alive)).join('|');if(fleetStatus!==lastFleetStatus){lastFleetStatus=fleetStatus;refreshFleetTabs();refreshShips();}
   if(state.phase==='RUNNING')$('hud').textContent=`전투 ${state.remaining.toFixed(1)}초 · 아군 ${state.scores.ALLY} : ${state.scores.ENEMY} 적군 / ${SCORE_CONFIG.victory}`;
   for(const f of state.fleets)for(const s of f.ships){const view=views.get(s.id);if(view){view.position.copy(s.position);view.quaternion.copy(s.rotation);view.visible=s.alive;}}
   const activeShots=new Set(state.shotEffects.map(p=>p.id));for(const [id,view] of projectileViews)if(!activeShots.has(id)){scene.remove(view);view.geometry.dispose();projectileViews.delete(id);}for(const p of state.shotEffects){if(!projectileViews.has(p.id)){const geometry=new THREE.BufferGeometry().setFromPoints([p.origin,p.position]);const view=new THREE.Line(geometry,shotMaterial);scene.add(view);projectileViews.set(p.id,view);}}
@@ -442,5 +459,5 @@ renderer.setAnimationLoop(ms=>{
   selectedIndicator.position.copy(selected.anchor);
   selectedIndicator.quaternion.copy(activeCamera.quaternion);
   $('fleet-info').textContent=`아군 ${selected.id} 함대 · 생존 ${selected.ships.filter(s=>s.alive).length}/${selected.ships.length}척 · 점수 ${state.scores.ALLY} : ${state.scores.ENEMY}`;
-  if(!draft){orbit.update();moveCamera(elapsed);}renderer.render(scene,activeCamera);drawMinimap();
+  if(draft)movePicking(elapsed);else{orbit.update();moveCamera(elapsed);}$('zoom-debug').textContent=draft?'입력 줌 '+pickingCamera.zoom.toFixed(2)+'×':'카메라 거리 '+camera.position.distanceTo(orbit.target).toFixed(1);renderer.render(scene,activeCamera);drawMinimap();
 });
