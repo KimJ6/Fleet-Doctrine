@@ -5,7 +5,7 @@
 > 프로젝트: 컴퓨터그래픽스 Project 3 / 3차원 우주 함대 오토배틀  
 > 독자: 기획 검토자, Codex 및 구현 담당 AI  
 > 용도: **게임 규칙의 단일 기준 문서**. 실행 코드나 저장소를 실제로 분석한 결과는 아님.  
-> v2.1 변경점 상세: `fleet_auto_battle_spatial_controls_amendment_v2_1.md` (선택 참고). v2.2 확장 사항: `FleetDoctrine_zone_control_expansion_v2_2.md` (선택 참고). **이 통합본이 Codex의 최신 단일 기준 문서다.**
+> v2.1 변경점 상세: [공간 입력·자세 변경 이력](../archive/spatial-controls-v2.1.md) (선택 참고). v2.2 확장 사항: [구역·증원 확장 이력](../archive/zone-control-v2.2.md) (선택 참고). **이 통합본이 Codex의 최신 단일 기준 문서다.**
 
 ## 0. 문서 읽는 법과 우선순위
 

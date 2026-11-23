@@ -1,7 +1,50 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { CONFIG, COMMAND_GRID, BATTLEFIELD, gridToWorld, worldToNearestGrid, insideBattlefield, setDestination, initialState, slots, dimensions, validateSize, step, start } from './simulation.js';
+import { CONFIG, COMMAND_GRID, BATTLEFIELD, ZONES, SCORE_CONFIG, zoneCounts, captureMuzzleChain, muzzlePoseFromData, gridToWorld, worldToNearestGrid, insideBattlefield, setDestination, initialState, slots, dimensions, validateSize, sizeForSpacing, step, start } from './simulation.js';
+import { discoverRig, initializeWeapons, applyPose, pitchRange } from '../rigging-test/rig-control.js';
+import { RigSafety } from '../rigging-test/rig-safety.js';
+
+// Game-only broad phase. The reference rigging tool and its hashed analysis remain unchanged.
+class GameRigSafety extends RigSafety {
+  constructor(root,weapons,options){
+    super(root,weapons,options);
+    this.fixedPairs=[];this.dynamicPairs=[];this.ownerIds=new Map();this.pairCache=new Map();
+    for(const part of this.parts)if(!this.ownerIds.has(part.owner))this.ownerIds.set(part.owner,this.ownerIds.size);
+    for(let i=0;i<this.parts.length;i++)for(let j=i+1;j<this.parts.length;j++){
+      const a=this.parts[i],b=this.parts[j];if(a.owner===b.owner)continue;
+      (a.owner&&b.owner?this.dynamicPairs:this.fixedPairs).push([a,b]);
+    }
+  }
+  poseCollision(activeOwners=null,{fixedOnly=false,dynamicOnly=false}={}){
+    this.update();
+    if(this.confirmedNeutral&&this.weapons.every(w=>!w.pivot||(Math.abs(w.yaw)<1e-9&&Math.abs(w.pitch)<1e-9)))return null;
+    const scanFixed=()=>{
+      if(activeOwners&&this.precomputed){
+        const w=this.weapons.find(w=>w.pivot&&activeOwners.size===w.barrels.length+1&&activeOwners.has(w.pivot)&&w.barrels.every(b=>activeOwners.has(b)));
+        const saved=w&&this.precomputed.weapons.find(x=>x.key===w.key&&JSON.stringify(x.settings)===JSON.stringify(w.settings));
+        const sample=saved?.samples.find(p=>p.yaw===w.yaw&&p.pitch===w.pitch);
+        if(sample)return this.allowInferredJoints?sample.draftBlocked:sample.blocked;
+      }
+      if(dynamicOnly)return null;
+      return scan(this.fixedPairs,'fixed');
+    };
+    const candidates=(pairs,kind)=>{
+      if(!activeOwners)return pairs;
+      const ids=[...activeOwners].filter(o=>this.ownerIds.has(o)).map(o=>this.ownerIds.get(o)).sort((a,b)=>a-b);
+      const key=kind+':'+ids.join(',');let selected=this.pairCache.get(key);
+      if(!selected){selected=pairs.filter(([a,b])=>activeOwners.has(a.owner)||activeOwners.has(b.owner));if(this.pairCache.size>=128)this.pairCache.delete(this.pairCache.keys().next().value);this.pairCache.set(key,selected);}
+      return selected;
+    };
+    const scan=(pairs,kind)=>{for(const [a,b] of candidates(pairs,kind)){
+      if(!a.box.intersectsBox(b.box))continue;
+      const hit=this.pairCollision(a,b);if(hit)return hit;
+    }return null;};
+    if(fixedOnly)return scanFixed();
+    if(dynamicOnly)return scan(this.dynamicPairs,'dynamic');
+    return scanFixed()||scan(this.dynamicPairs,'dynamic');
+  }
+}
 
 const $ = id => document.getElementById(id);
 const state = initialState();
@@ -52,14 +95,85 @@ const markerGeometry=new THREE.SphereGeometry(.24,12,8), markerMaterial=new THRE
 const targetMarker=new THREE.Mesh(new THREE.OctahedronGeometry(.7),new THREE.MeshBasicMaterial({color:0xffd46a,wireframe:true}));scene.add(targetMarker);
 const slotGroup=new THREE.Group();scene.add(slotGroup);
 const lineMaterial=new THREE.LineBasicMaterial({color:0xffd46a});const lineGeometry=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]);const route=new THREE.Line(lineGeometry,lineMaterial);scene.add(route);
-const views=new Map();
+const views=new Map(), rigs=new Map(), moveSafetyCache=new Map();
+const projectileViews=new Map(),shotMaterial=new THREE.LineBasicMaterial({color:0xffd87a,transparent:true,opacity:.9});
+for(const zone of ZONES){const size=zone.max.clone().sub(zone.min),center=zone.min.clone().add(zone.max).multiplyScalar(.5);const box=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(size.x,size.y,size.z)),new THREE.LineBasicMaterial({color:zone.multiplier===2?0xc69b51:0x3d7388,transparent:true,opacity:.36}));box.position.copy(center);scene.add(box);}
+// Approximate visual movement guard. AABB overlap is not an exact collision test.
+// Muzzle and projectile safety continue to use the separate mesh checks.
+function boxOverlapFraction(a,b){
+  const x=Math.max(0,Math.min(a.max.x,b.max.x)-Math.max(a.min.x,b.min.x));
+  const y=Math.max(0,Math.min(a.max.y,b.max.y)-Math.max(a.min.y,b.min.y));
+  const z=Math.max(0,Math.min(a.max.z,b.max.z)-Math.max(a.min.z,b.min.z));
+  const volume=box=>Math.max(0,box.max.x-box.min.x)*Math.max(0,box.max.y-box.min.y)*Math.max(0,box.max.z-box.min.z);
+  const smaller=Math.min(volume(a),volume(b));return smaller>1e-15?x*y*z/smaller:0;
+}
+function approximateMoveBatch(rig,proposals){
+  if(!proposals.length)return;
+  const safety=rig.safety,active=new Set(proposals.flatMap(p=>[p.weapon.pivot,...p.weapon.barrels]));
+  const pairs=[...safety.fixedPairs,...safety.dynamicPairs].filter(([a,b])=>active.has(a.owner)||active.has(b.owner));
+  safety.update();const before=pairs.map(([a,b])=>boxOverlapFraction(a.box,b.box));
+  const original=proposals.map(({weapon:w})=>({w,yaw:w.yaw,pitch:w.pitch}));
+  try{
+    for(const p of proposals){p.weapon.yaw=p.yaw;p.weapon.pitch=p.pitch;applyPose(p.weapon);}
+    safety.update();
+    // Permit the overlap already present in the current pose. Stop only a large new
+    // overlap; legitimate contacts and thin geometry still need visual validation.
+    const blocked=pairs.some(([a,b],i)=>{const next=boxOverlapFraction(a.box,b.box);return next>0.65&&next>before[i]+0.20;});
+    if(blocked)for(const x of original){x.w.yaw=x.yaw;x.w.pitch=x.pitch;applyPose(x.w);}
+  }catch(error){for(const x of original){x.w.yaw=x.yaw;x.w.pitch=x.pitch;applyPose(x.w);}throw error;}
+}
+
+// Weapon state belongs to the ship; the rig remains the adapter for visual and safety checks.
+function battleCombat(state,ships,dt,index){
+  const shots=[];
+  // Aim at 5 Hz; shots are resolved against the current simulation snapshot.
+  if(Math.round(state.time/CONFIG.dt)%12!==0)return shots;
+  for(const ship of ships){const rig=rigs.get(ship.id);if(!rig)continue;rig.view.position.copy(ship.position);rig.view.quaternion.copy(ship.rotation);}
+  const aimDt=dt*12,teamByFleet=new Map(state.fleets.map(f=>[f.id,f.team])),fleetCandidates=new Map(),assignments=new Map();
+  // Query once per fleet and share the conservative enemy set across its ships.
+  for(const fleet of state.fleets){
+    const alive=fleet.ships.filter(s=>s.alive);if(!alive.length)continue;
+    const bounds=new THREE.Box3().setFromPoints(alive.map(s=>s.position)).expandByScalar(45);
+    fleetCandidates.set(fleet.id,index.query(bounds.min,bounds.max).filter(s=>teamByFleet.get(s.fleetId)!==fleet.team));
+    assignments.set(fleet.id,new Map());
+  }
+  for(const ship of ships){const rig=rigs.get(ship.id);if(!rig?.safe)continue;const fleet=state.fleets.find(f=>f.id===ship.fleetId),nearest=[];
+    for(const w of rig.weapons){w.yaw=w.combatState.yaw;w.pitch=w.combatState.pitch;}
+    // Only a small approximate set is retained; line-of-fire checks remain conservative.
+    for(const enemy of fleetCandidates.get(ship.fleetId)||[]){const distance=ship.position.distanceToSquared(enemy.position);if(distance>45*45)continue;
+      const item={enemy,distance};let at=0;while(at<nearest.length&&(nearest[at].distance<distance||(nearest[at].distance===distance&&nearest[at].enemy.id.localeCompare(enemy.id)<0)))at++;
+      nearest.splice(at,0,item);if(nearest.length>4)nearest.pop();
+    }
+    const loads=assignments.get(ship.fleetId);
+    for(const w of rig.weapons){const data=w.combatState;data.cooldown=Math.max(0,data.cooldown-aimDt);let selected=null,best=Infinity;
+      for(const item of nearest){const value=item.distance*(1+.3*(loads.get(item.enemy.id)||0));if(value<best){best=value;selected=item.enemy;}}
+      w.target=selected;data.targetId=selected?.id||null;if(selected)loads.set(selected.id,(loads.get(selected.id)||0)+1);
+    }
+    const proposals=rig.weapons.filter(w=>w.pivot&&w.target&&w.muzzleNodes.length).map(w=>{
+      const score=(yaw,pitch)=>{const pose=muzzlePoseFromData(w.muzzleChains[0],w,ship.position,ship.rotation,yaw,pitch),toward=w.target.position.clone().sub(pose.position);return toward.lengthSq()>1e-12?pose.direction.dot(toward.normalize()):-1;};
+      let best=score(w.yaw,w.pitch),yaw=w.yaw,pitch=w.pitch;const oldYaw=yaw,oldPitch=pitch,delta=35*aimDt;
+      for(const [dy,dp] of [[delta,0],[-delta,0],[0,delta],[0,-delta]]){
+        const candidateYaw=THREE.MathUtils.clamp(oldYaw+dy,...w.settings.yaw);
+        const candidatePitch=THREE.MathUtils.clamp(oldPitch+dp,...pitchRange({...w,yaw:candidateYaw}));
+        const value=score(candidateYaw,candidatePitch);if(value>best+1e-9){best=value;yaw=candidateYaw;pitch=candidatePitch;}
+      }
+      return {weapon:w,yaw,pitch};
+    }).filter(p=>Math.abs(p.yaw-p.weapon.yaw)>1e-9||Math.abs(p.pitch-p.weapon.pitch)>1e-9);
+    try{approximateMoveBatch(rig,proposals);for(const w of rig.weapons){w.combatState.yaw=w.yaw;w.combatState.pitch=w.pitch;}rig.view.updateWorldMatrix(true,true);}catch(e){rig.safe=false;rig.reason='포탑 근사 검사 오류';console.error(e);continue;}
+    for(const w of rig.weapons){if(!w.target||w.combatState.cooldown>0)continue;for(let muzzleIndex=0;muzzleIndex<w.muzzleNodes.length;muzzleIndex++){const muzzle=w.muzzleNodes[muzzleIndex],pose=muzzlePoseFromData(w.muzzleChains[muzzleIndex],w,ship.position,ship.rotation),origin=pose.position,dir=pose.direction,toward=w.target.position.clone().sub(origin),range=toward.length();if(range<1e-6||dir.dot(toward.normalize())<.995)continue;
+      // Defer the expensive own-mesh safety check until the broad phase finds an enemy first hit.
+      const validate=()=>{if(!rig.safe)return false;try{return !rig.safety.muzzleBlocked(muzzle,{radius:.1,range});}catch(e){rig.safe=false;rig.reason='포구 안전 검사 오류';console.error(e);return false;}};
+      shots.push({ownerShipId:ship.id,muzzleId:muzzle.name,team:fleet.team,position:origin.clone(),direction:dir,range,radius:.1,damage:20,weapon:w.combatState,validate});
+    }}
+  }return shots;
+}
 const manager=new THREE.LoadingManager();const assetRoot='../../ship%20assets/rigged/';
 manager.setURLModifier(url=>/\.(png|jpe?g)(\?.*)?$/i.test(url)?`${assetRoot}Texture/${url.split('/').pop().split('\\').pop()}`:url);
 const setError=text=>{$('error').textContent=text};
 const battleSize = new THREE.Vector3(BATTLEFIELD.max.x-BATTLEFIELD.min.x, BATTLEFIELD.max.y-BATTLEFIELD.min.y, BATTLEFIELD.max.z-BATTLEFIELD.min.z);
 const battleBox = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(...battleSize.toArray())),new THREE.LineBasicMaterial({color:0x304c65,transparent:true,opacity:0.55}));
 battleBox.position.set((BATTLEFIELD.min.x+BATTLEFIELD.max.x)/2,(BATTLEFIELD.min.y+BATTLEFIELD.max.y)/2,(BATTLEFIELD.min.z+BATTLEFIELD.max.z)/2);scene.add(battleBox);
-const pickGrid = new THREE.GridHelper(120,120,0x527b91,0x263d50);pickGrid.visible=false;scene.add(pickGrid);
+const pickGrid = new THREE.GridHelper(120,120 / COMMAND_GRID.spacing,0x527b91,0x263d50);pickGrid.visible=false;scene.add(pickGrid);
 const pickMarker = new THREE.Mesh(new THREE.OctahedronGeometry(.65),new THREE.MeshBasicMaterial({color:0xffe08a,wireframe:true,depthTest:false}));pickMarker.visible=false;pickMarker.renderOrder=3;scene.add(pickMarker);
 const pickGuide = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),new THREE.LineBasicMaterial({color:0xffd46a,depthTest:false}));pickGuide.visible=false;pickGuide.renderOrder=3;scene.add(pickGuide);
 const pickRay = new THREE.Raycaster(),pickNdc = new THREE.Vector2(),pickPlane = new THREE.Plane(),pickWorld = new THREE.Vector3();
@@ -77,11 +191,16 @@ function setPickingView(){
     pickGrid.rotation.set(0,0,Math.PI/2);pickGrid.position.set(x,0,0);pickGuide.geometry.setFromPoints([new THREE.Vector3(x,BATTLEFIELD.min.y,z),new THREE.Vector3(x,BATTLEFIELD.max.y,z)]);pickGuide.visible=true;$('pick-title').textContent='2 / 2 높이 선택 (YZ)';
   }
   pickingCamera.updateMatrixWorld(true);$('pick-back').disabled=draft.phase==='PICK_XZ';
-  $('pick-info').textContent=draft.phase==='PICK_XZ'?'오른쪽 +X · 위 -Z · X/Z를 선택하세요.':`오른쪽 +Z · 위 +Y · X ${draft.ix}, Z ${draft.iz} 고정`;
+  $('pick-info').textContent=draft.phase==='PICK_XZ'?'오른쪽 +X · 위 -Z · X/Z를 선택하세요.':`오른쪽 +Z · 위 +Y · X ${COMMAND_GRID.origin.x + draft.ix * COMMAND_GRID.spacing}, Z ${COMMAND_GRID.origin.z + draft.iz * COMMAND_GRID.spacing} 고정`;
 }
 function startPicking(){
   if(state.phase!=='PREPARATION'||draft)return;
-  pickingCamera.zoom=1;resizePickingCamera();
+  // Match the perspective view's visible height at its orbit target. The two
+  // projections differ away from that plane, so this is an approximate match.
+  const viewDistance=camera.position.distanceTo(orbit.target);
+  const visibleHeight=2*Math.tan(THREE.MathUtils.degToRad(camera.getEffectiveFOV())/2)*viewDistance;
+  pickingCamera.zoom=THREE.MathUtils.clamp(150/Math.max(visibleHeight,1e-6),0.7,8);
+  resizePickingCamera();
   draft={phase:'PICK_XZ',fleetId:selected.id,ix:null,iz:null,hover:null,snapshot:{position:camera.position.clone(),quaternion:camera.quaternion.clone(),zoom:camera.zoom,target:orbit.target.clone(),enabled:orbit.enabled}};
   cameraKeys.clear();orbit.enabled=false;activeCamera=pickingCamera;pickGrid.visible=true;pickMarker.visible=false;$('pick-panel').hidden=false;
   setPickingView();syncUI();setError('');
@@ -105,8 +224,8 @@ function samplePick(event){
 function showPick(event){
   if(!draft)return;let sample;try{sample=samplePick(event);}catch{sample=null;}
   draft.hover=sample;pickMarker.visible=!!sample;if(!sample){$('pick-info').textContent='전장 안의 격자 교차점을 선택하세요.';return;}
-  pickMarker.position.copy(sample.world);if(draft.phase==='PICK_XZ'){pickMarker.position.y=selected.anchor.y;$('pick-info').textContent=`X ${sample.point.ix}, Z ${sample.point.iz} · 높이 미지정`;}
-  else $('pick-info').textContent=`X ${draft.ix}, Z ${draft.iz} 고정 · Y ${sample.point.iy}`;
+  pickMarker.position.copy(sample.world);if(draft.phase==='PICK_XZ'){pickMarker.position.y=selected.anchor.y;$('pick-info').textContent=`X ${sample.world.x}, Z ${sample.world.z} · 높이 미지정`;}
+  else $('pick-info').textContent=`X ${sample.world.x}, Z ${sample.world.z} 고정 · Y ${sample.world.y}`;
 }
 function commitPick(event){
   if(!draft)return;let sample;try{sample=samplePick(event);}catch{sample=null;}
@@ -139,7 +258,7 @@ function selectFleet(fleet) {
   selected = fleet;
   $('fleet').value = fleet.id;
   setError(''); refreshInputs(); refreshShips(); updatePreview();
-  $('fleet-info').textContent=`아군 ${selected.id} 함대 · ${selected.ships.length}척 · 체력/교전 미구현`;
+  $('fleet-info').textContent=`아군 ${selected.id} 함대 · 생존 ${selected.ships.filter(s=>s.alive).length}/${selected.ships.length}척 · 점수 ${state.scores.ALLY} : ${state.scores.ENEMY}`;
   drawMinimap();
 }
 function alignCamera(plane) {
@@ -169,7 +288,7 @@ function drawMinimap() {
   ctx.fillStyle = '#091523'; ctx.fillRect(0, 0, width, height);
   const def = planeDefinitions[mapPlane];
   const coords = pos => [pos[def.horizontal], pos[def.vertical] * def.sign];
-  const samples = state.fleets.map(f => coords(f.anchor)); samples.push(coords(selected.destination));
+  const samples = state.fleets.map(f => coords(f.anchor)); samples.push(coords(selected.destination),coords(BATTLEFIELD.min),coords(BATTLEFIELD.max));
   const xs = samples.map(p => p[0]), ys = samples.map(p => p[1]);
   const centerX = (Math.min(...xs) + Math.max(...xs)) / 2, centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
   const spanX = Math.max(30, Math.max(...xs) - Math.min(...xs) + 16), spanY = Math.max(30, Math.max(...ys) - Math.min(...ys) + 16);
@@ -178,6 +297,7 @@ function drawMinimap() {
   ctx.strokeStyle = '#2c4054'; ctx.lineWidth = 1;
   const [ox,oy] = project(new THREE.Vector3());
   ctx.beginPath(); if (ox >= 0 && ox <= width) {ctx.moveTo(ox,0);ctx.lineTo(ox,height);} if (oy >= 0 && oy <= height) {ctx.moveTo(0,oy);ctx.lineTo(width,oy);} ctx.stroke();
+  for(const zone of ZONES){const a=project(zone.min),b=project(zone.max);ctx.strokeStyle=zone.multiplier===2?'#bda064':'#41677a';ctx.strokeRect(Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.abs(a[0]-b[0]),Math.abs(a[1]-b[1]));}
   const [ax,ay] = project(selected.anchor), [tx,ty] = project(selected.destination);
   ctx.strokeStyle = '#ffd46a';ctx.setLineDash([4,3]);ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(tx,ty);ctx.stroke();ctx.setLineDash([]);
   ctx.beginPath();ctx.moveTo(tx-5,ty-5);ctx.lineTo(tx+5,ty+5);ctx.moveTo(tx+5,ty-5);ctx.lineTo(tx-5,ty+5);ctx.stroke();
@@ -219,58 +339,91 @@ function updatePreview(){
   targetMarker.position.copy(selected.destination);
   lineGeometry.setFromPoints([selected.anchor,selected.destination]);
 }
-function number(id){const el=$(id);return el.value.trim()===''?NaN:Number(el.value);}
 function refreshInputs(){
-  for(const axis of ['x','y','z']){$(`dest-${axis}`).value=selected.destination[axis];$(`size-${axis}`).value=selected.size[axis];}
-  const counts=dimensions(selected.ships.length);$('formation-info').textContent=`이동 격자 (${counts.join(' × ')}) · 한 층인 축: ${['X','Y','Z'].filter((_,i)=>counts[i]===1).join(', ') || '없음'}`;
+  $('destination-info').textContent=`현재 목적지: (${selected.destination.x}, ${selected.destination.y}, ${selected.destination.z})`;
+  const counts=dimensions(selected.ships.length);
+  $('formation-info').textContent=`이동 격자 (${counts.join(' × ')})`;
+  for(const [i,axis] of ['x','y','z'].entries()) {
+    const field=$(`spacing-${axis}`);field.value=selected.spacingLevels[axis];
+    field.disabled=state.phase!=='PREPARATION'||!!draft||counts[i]<=1;
+    field.title=counts[i]<=1?'이 방향은 한 층이므로 간격이 적용되지 않습니다.':'';
+  }
 }
+let draggedShip=null;
 function refreshShips(){
   const list=$('ships');list.replaceChildren();
-  selected.ships.forEach((s,i)=>{
-    const row=document.createElement('div');row.className='ship';const name=document.createElement('span');name.textContent=`${i+1}. 함선 ${s.id}`;row.append(name);
-    for(const [label,action,disabled] of [['↑',()=>reorder(i,-1),i===0],['↓',()=>reorder(i,1),i===selected.ships.length-1],['다른 함대로',()=>transfer(s),selected.ships.length<=1]]){
-      const b=document.createElement('button');b.textContent=label;b.disabled=disabled||state.phase!=='PREPARATION'||!!draft;b.addEventListener('click',action);row.append(b);
-    }list.append(row);
+  selected.ships.forEach((ship,i)=>{
+    const row=document.createElement('div');row.className='ship';row.dataset.shipId=ship.id;
+    const canEdit=state.phase==='PREPARATION'&&!draft;row.draggable=canEdit;
+    const handle=document.createElement('span');handle.className='drag-handle';handle.textContent='⠿';handle.setAttribute('aria-hidden','true');row.append(handle);
+    const name=document.createElement('span');name.textContent=`${i+1}. 함선 ${ship.id} · ${ship.alive ? `체력 ${ship.hp}` : '격침'}`;row.append(name);
+    const move=document.createElement('button');move.textContent='다른 함대로';move.disabled=!canEdit||selected.ships.length<=1;move.addEventListener('click',()=>transfer(ship));row.append(move);
+    row.addEventListener('dragstart',event=>{
+      if(!canEdit)return event.preventDefault();draggedShip={id:ship.id,fleetId:selected.id};event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',ship.id);row.classList.add('dragging');
+    });
+    row.addEventListener('dragover',event=>{
+      if(!draggedShip||draggedShip.fleetId!==selected.id||draggedShip.id===ship.id||state.phase!=='PREPARATION'||draft)return;
+      event.preventDefault();event.dataTransfer.dropEffect='move';const after=event.clientY>row.getBoundingClientRect().top+row.getBoundingClientRect().height/2;
+      row.classList.toggle('drop-after',after);row.classList.toggle('drop-before',!after);
+    });
+    row.addEventListener('dragleave',()=>row.classList.remove('drop-after','drop-before'));
+    row.addEventListener('drop',event=>{
+      event.preventDefault();const after=event.clientY>row.getBoundingClientRect().top+row.getBoundingClientRect().height/2;
+      if(draggedShip&&draggedShip.fleetId===selected.id&&state.phase==='PREPARATION'&&!draft){
+        const from=selected.ships.findIndex(item=>item.id===draggedShip.id),target=selected.ships.findIndex(item=>item.id===ship.id);
+        if(from>=0&&target>=0&&from!==target){const [item]=selected.ships.splice(from,1);const dest=selected.ships.findIndex(other=>other.id===ship.id)+(after?1:0);selected.ships.splice(dest,0,item);}
+      }
+      draggedShip=null;refreshShips();updatePreview();
+    });
+    row.addEventListener('dragend',()=>{draggedShip=null;row.classList.remove('dragging');for(const item of list.children)item.classList.remove('drop-before','drop-after');});
+    list.append(row);
   });
 }
-function reorder(i,d){if(state.phase!=='PREPARATION')return;const a=selected.ships;[a[i],a[i+d]]=[a[i+d],a[i]];refreshShips();updatePreview();}
-function transfer(s){
-  if(state.phase!=='PREPARATION'||selected.ships.length<=1)return;
+function transfer(ship){
+  if(state.phase!=='PREPARATION'||draft||selected.ships.length<=1)return;
   const other=friendly.find(f=>f!==selected);
-  if(!validateSize(other.ships.length+1,other.size)){setError('대상 함대의 격자 크기를 늘려 최소 간격을 확보하세요.');return;}
-  selected.ships.splice(selected.ships.indexOf(s),1);other.ships.push(s);s.fleetId=other.id;setError('');refreshInputs();refreshShips();updatePreview();
+  const otherSize=sizeForSpacing(other.ships.length+1,other.spacingLevels);
+  if(!validateSize(other.ships.length+1,otherSize)){setError('대상 함대의 간격을 확인하세요.');return;}
+  selected.ships.splice(selected.ships.indexOf(ship),1);other.ships.push(ship);ship.fleetId=other.id;
+  selected.size.copy(sizeForSpacing(selected.ships.length,selected.spacingLevels));other.size.copy(otherSize);
+  setError('');refreshInputs();refreshShips();updatePreview();
 }
+for(const axis of ['x','y','z'])$(`spacing-${axis}`).addEventListener('change',event=>{
+  if(state.phase!=='PREPARATION'||draft){refreshInputs();return;}
+  const levels={...selected.spacingLevels,[axis]:event.target.value};
+  const size=sizeForSpacing(selected.ships.length,levels);
+  if(!validateSize(selected.ships.length,size)){setError('이 간격은 현재 대형에 적용할 수 없습니다.');refreshInputs();return;}
+  selected.spacingLevels=levels;selected.size.copy(size);setError('');refreshInputs();updatePreview();
+});
 function syncUI(){
   const prep=state.phase==='PREPARATION', editing=!!draft;
-  for(const id of ['apply','dest-x','dest-y','dest-z','size-x','size-y','size-z'])$(id).disabled=!prep||editing;
   $('fleet').disabled=editing;
   $('pick-position').disabled=!prep||editing;
   for(const button of document.querySelectorAll('[data-camera-plane]'))button.disabled=editing;
-  $('start').disabled=!prep||editing;$('pause').disabled=prep;
-  $('hud').textContent=prep?'준비 단계':`이동 중 · ${state.remaining.toFixed(1)}초`;
-  $('status').textContent=prep?'준비 단계 — 명령을 설정하세요':`자동 이동 중 · ${state.remaining.toFixed(1)}초`;
-  refreshShips();
+  $('start').disabled=!prep||editing;$('pause').disabled=state.phase!=='RUNNING';
+  $('hud').textContent=state.phase==='RESULT'?`결과: ${state.result==='DRAW'?'무승부':state.result==='ALLY'?'아군 승리':'적군 승리'}`:prep?'준비 단계':`전투 중 · ${state.remaining.toFixed(1)}초`;
+  $('status').textContent=state.phase==='RESULT'?'전투 결과 확정':prep?'준비 단계 — 명령을 설정하세요':`자동 전투 중 · ${state.remaining.toFixed(1)}초`;
+  refreshInputs();refreshShips();
 }
 $('fleet').addEventListener('change',()=>selectFleet(friendly.find(f=>f.id===$('fleet').value)));
-$('apply').addEventListener('click',()=>{
-  if(state.phase!=='PREPARATION')return;
-  const size=new THREE.Vector3(number('size-x'),number('size-y'),number('size-z'));
-  if(!size.toArray().every(Number.isFinite)){setError('모든 대형 크기에 유효한 숫자를 입력하세요.');return;}
-  if(!validateSize(selected.ships.length,size)){setError('격자 크기가 너무 작습니다. 슬롯 사이 간격은 최소 4여야 합니다.');return;}
-  selected.size.copy(size);setError('');refreshInputs();updatePreview();
-});
-$('start').addEventListener('click',()=>{start(state);setError('');syncUI();});
+$('start').addEventListener('click',()=>{start(state);if([...rigs.values()].some(r=>!r.safe))setError('검증되지 않은 무장의 사격이 보류되었습니다.');else setError('');syncUI();});
 $('pause').addEventListener('click',()=>{if(state.phase==='RUNNING')state.phase='PREPARATION';syncUI();});
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);resizePickingCamera();});
 try{
-  const model=await new FBXLoader(manager).loadAsync(`${assetRoot}Light_cruiser_01_rigged.fbx`);
+  const assetUrl=`${assetRoot}Light_cruiser_01_rigged.fbx`;const model=await new FBXLoader(manager).loadAsync(assetUrl);
+  const [report,assetBytes]=await Promise.all([fetch('../rigging-test/rig-analysis.json').then(r=>{if(!r.ok)throw Error('리깅 분석 자료 없음');return r.json();}),fetch(assetUrl).then(r=>{if(!r.ok)throw Error('FBX 해시 확인 실패');return r.arrayBuffer();})]);
+  const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',assetBytes)),x=>x.toString(16).padStart(2,'0')).join('');
+  const neutralConfirmed=report.models.some(m=>m.file==='Light_cruiser_01_rigged.fbx'&&m.sha256===digest);
   const box=new THREE.Box3().setFromObject(model),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3()),max=Math.max(size.x,size.y,size.z);
   if(!Number.isFinite(max)||max<=0)throw new Error('FBX의 크기가 올바르지 않습니다.');
   model.position.sub(center);
   const corrected=new THREE.Group();corrected.add(model);corrected.scale.setScalar(2.2/max);corrected.rotation.y=Math.PI/2;
   for(const f of state.fleets)for(const s of f.ships){
-    const view=new THREE.Group();view.userData.shipId=s.id;view.add(corrected.clone(true));scene.add(view);views.set(s.id,view);
+    s.collisionRadius=size.length()/max*1.1;
+    const view=new THREE.Group();view.userData.shipId=s.id;view.add(corrected.clone(true));scene.add(view);views.set(s.id,view);view.position.copy(s.position);view.quaternion.copy(s.rotation);view.updateWorldMatrix(true,true);
+    const rig=discoverRig(view),weapons=initializeWeapons(view,rig);s.weapons=weapons.map((weapon,i)=>({id:s.id+':'+i,shipId:s.id,yaw:weapon.yaw,pitch:weapon.pitch,cooldown:0,targetId:null}));for(let i=0;i<weapons.length;i++){const weapon=weapons[i];weapon.combatState=s.weapons[i];weapon.muzzleChains=weapon.muzzleNodes.map(muzzle=>captureMuzzleChain(view,weapon,muzzle));}const safety=new GameRigSafety(view,weapons);safety.confirmedNeutral=neutralConfirmed;if(neutralConfirmed)safety.captureConfirmedNeutralContacts();rigs.set(s.id,{view,weapons,safety,assetHash:digest,safe:neutralConfirmed&&rig.muzzleCount>0,reason:neutralConfirmed?'':'모델 해시가 일치하지 않아 사격 보류'});
   }
+  state.combat=battleCombat;if(!neutralConfirmed)setError('검증된 리깅 모델과 일치하지 않아 사격을 보류합니다.');
   for(const f of friendly)$('fleet').add(new Option(`아군 ${f.id} 함대`,f.id));
   $('fleet').value=selected.id;refreshInputs();syncUI();updatePreview();
 }catch(e){setError(`모델을 불러오지 못했습니다: ${e.message}. 상위 폴더에서 서버를 실행하고 ship assets/rigged 경로를 확인하세요.`);console.error(e);}
@@ -282,11 +435,12 @@ renderer.setAnimationLoop(ms=>{
     if(steps===CONFIG.maxSteps&&acc>=CONFIG.dt)acc=0;
   }else acc=0;
   if(lastPhase!==state.phase){lastPhase=state.phase;syncUI();}
-  if(state.phase==='RUNNING')$('hud').textContent=`이동 중 · ${state.remaining.toFixed(1)}초`;
-  for(const f of state.fleets)for(const s of f.ships){const view=views.get(s.id);if(view){view.position.copy(s.position);view.quaternion.copy(s.rotation);}}
+  if(state.phase==='RUNNING')$('hud').textContent=`전투 ${state.remaining.toFixed(1)}초 · 아군 ${state.scores.ALLY} : ${state.scores.ENEMY} 적군 / ${SCORE_CONFIG.victory}`;
+  for(const f of state.fleets)for(const s of f.ships){const view=views.get(s.id);if(view){view.position.copy(s.position);view.quaternion.copy(s.rotation);view.visible=s.alive;}}
+  const activeShots=new Set(state.shotEffects.map(p=>p.id));for(const [id,view] of projectileViews)if(!activeShots.has(id)){scene.remove(view);view.geometry.dispose();projectileViews.delete(id);}for(const p of state.shotEffects){if(!projectileViews.has(p.id)){const geometry=new THREE.BufferGeometry().setFromPoints([p.origin,p.position]);const view=new THREE.Line(geometry,shotMaterial);scene.add(view);projectileViews.set(p.id,view);}}
   updatePreview();
   selectedIndicator.position.copy(selected.anchor);
   selectedIndicator.quaternion.copy(activeCamera.quaternion);
-  $('fleet-info').textContent=`아군 ${selected.id} 함대 · ${selected.ships.length}척 · 체력/교전 미구현`;
+  $('fleet-info').textContent=`아군 ${selected.id} 함대 · 생존 ${selected.ships.filter(s=>s.alive).length}/${selected.ships.length}척 · 점수 ${state.scores.ALLY} : ${state.scores.ENEMY}`;
   if(!draft){orbit.update();moveCamera(elapsed);}renderer.render(scene,activeCamera);drawMinimap();
 });

@@ -1,6 +1,6 @@
 # 함선 10종 분석 결과
 
-[검사 도구 사용법](README.md) · [정책](../docs/ship-rigging-policy.md) · [상세 JSON](rig-analysis.json)
+[검사 도구 사용법](README.md) · [정책](../docs/policies/ship-rigging.md) · [상세 JSON](rig-analysis.json)
 
 생성 시점: 2026-11-22T17:32:47.551Z
 

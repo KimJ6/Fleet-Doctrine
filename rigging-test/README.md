@@ -1,6 +1,6 @@
 # 함선 리깅·이동·발사 검사 도구
 
-[프로젝트](../README.md) · [정책](../docs/ship-rigging-policy.md) · [10종 분석 결과](rig-analysis.md)
+[프로젝트](../README.md) · [정책](../docs/policies/ship-rigging.md) · [10종 분석 결과](rig-analysis.md)
 
 작업 폴더의 리깅 FBX 10종을 읽어 공통 제어와 형상 검사를 수행한다. 모델 파일은 변경하지 않는다. FBX와 텍스처는 프로젝트의 자산 라이선스 방침에 따라 별도로 관리하며, 분석 JSON에는 모델 메시를 복제하지 않는다.
 

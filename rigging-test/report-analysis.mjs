@@ -1,6 +1,6 @@
 import {readFile,writeFile} from 'node:fs/promises';
 const r=JSON.parse(await readFile(new URL('./rig-analysis.json',import.meta.url),'utf8'));
-const rows=['# 함선 10종 분석 결과','','[검사 도구 사용법](README.md) · [정책](../docs/ship-rigging-policy.md) · [상세 JSON](rig-analysis.json)','','생성 시점: '+r.generatedAt,'',
+const rows=['# 함선 10종 분석 결과','','[검사 도구 사용법](README.md) · [정책](../docs/policies/ship-rigging.md) · [상세 JSON](rig-analysis.json)','','생성 시점: '+r.generatedAt,'',
 '실제 로더로 FBX 계층·포구·엔진·위상과 회전 방향을 조사했다. 고정 형상의 자세 표본은 포탑 30° 간격과 중립·경계, 포신 중립·중간·경계를 조합했다. 모든 다른 무장의 자세 조합이나 연속 경로를 인증한 자료가 아니다. 접합 영역은 후보이며, 엄격 모드의 차단을 실제 결함으로 단정하지 않는다.','',
 '| 모델 | 가동 포탑 | 고정 포구 | 전체 포구 | 엔진 | 표본 | 추정 접합 허용 시 고정 검사 통과 표본 | 중립 발사 차단 포구 | 열린/비다양체 메시 |','|---|---:|---:|---:|---:|---:|---:|---:|---:|'];
 for(const m of r.models){
