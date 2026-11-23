@@ -1,3 +1,5 @@
+import { discoverRig, settingsFor, initializeWeapons, applyPose, pitchRange } from './rig-control.js';
+import { RigSafety } from './rig-safety.js?v=neutral-joint-20261123';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -41,51 +43,14 @@ const flameGeometry = new THREE.ConeGeometry(0.12, 0.8, 12);
 const shots = [];
 const anchors = [];
 const turrets = [];
-// 모델 이름 규약: PIVOT_Turret_*, PIVOT_Barrel_*, FX_Muzzle_*, FX_Engine_*.
-// 기존 모델 기본값. 다른 무장은 일반값으로 시작하며 화면에서 조정할 수 있다.
-const presetLimits = {
-  Center: { yaw: [-140, 140], pitch: [0, 45], pitchSign: 1 },
-  Side_L: { yaw: [-180, 180], pitch: [0, 45], pitchSign: -1 },
-  Side_R: { yaw: [-180, 180], pitch: [0, 45], pitchSign: 1 },
-  Aft_L: { yaw: [-180, 180], pitch: [0, 45], pitchSign: 1 },
-  Aft_R: { yaw: [-180, 180], pitch: [0, 45], pitchSign: 1 },
-};
-const labels = { Center: '중앙', Side_L: '좌현', Side_R: '우현', Aft_L: '후방 좌현', Aft_R: '후방 우현' };
-const hasAncestor = (node, ancestor) => {
-  for (let p = node.parent; p; p = p.parent) if (p === ancestor) return true;
-  return false;
-};
-export function discoverRig(root) {
-  const all = []; root.traverse(node => all.push(node));
-  const turrets = all.filter(n => n.name.startsWith('PIVOT_Turret_'));
-  const barrels = all.filter(n => n.name.startsWith('PIVOT_Barrel_'));
-  const muzzles = all.filter(n => n.name.startsWith('FX_Muzzle_'));
-  const engines = all.filter(n => n.name.startsWith('FX_Engine_'));
-  const weapons = turrets.map(pivot => {
-    const key = pivot.name.slice('PIVOT_Turret_'.length);
-    // 가장 가까운 포탑만 소유한다. 중첩된 피벗을 이중 집계하지 않는다.
-    const owned = n => hasAncestor(n, pivot) && !turrets.some(other => other !== pivot && hasAncestor(other, pivot) && hasAncestor(n, other));
-    return { key, label: labels[key] || key, pivot, barrels: barrels.filter(owned), muzzleNodes: muzzles.filter(owned) };
-  });
-  for (const node of muzzles) if (!turrets.some(t => hasAncestor(node, t))) {
-    const key = node.name.slice('FX_Muzzle_'.length);
-    weapons.push({ key: `Fixed_${key}`, label: `고정 포 · ${key}`, pivot: null, barrels: [], muzzleNodes: [node] });
-  }
-  return { weapons, engines, muzzleCount: muzzles.length };
-}
-function settingsFor(weapon) {
-  const side = weapon.key.startsWith('Side_');
-  const p = presetLimits[weapon.key] || { yaw: [-180, 180], pitch: [-45, 45], pitchSign: 1 };
-  const validAxis = x => ['x','y','z'].includes(String(x).toLowerCase()) ? String(x).toLowerCase() : null;
-  return { yaw: [...p.yaw], pitch: [...p.pitch], pitchSign: p.pitchSign,
-    yawAxis: validAxis(weapon.pivot?.userData?.rotation_axis) || (side ? 'y' : 'z'),
-    pitchAxis: validAxis(weapon.barrels[0]?.userData?.rotation_axis) || (side ? 'z' : 'y') };
-}
 const v = new THREE.Vector3();
 const q = new THREE.Quaternion();
 const axisY = new THREE.Vector3(0, 1, 0);
 let ship;
 let displayRoot;
+let safety;
+const jointMarker = new THREE.Mesh(new THREE.SphereGeometry(1,16,12),new THREE.MeshBasicMaterial({color:0xff44aa,wireframe:true,transparent:true,opacity:.6}));
+jointMarker.visible=false;scene.add(jointMarker);
 let previousTime = performance.now();
 
 function addAnchor(node, type, directionNode) {
@@ -95,6 +60,13 @@ function addAnchor(node, type, directionNode) {
   const anchor = { node, type, directionNode, marker, flashUntil: 0 };
   if (type === 'engine') {
     anchor.flame = new THREE.Mesh(flameGeometry, flameMaterial);
+    const radiusMatch = node.name.match(/_Radius_(\d+(?:p\d+)?)/);
+    if (radiusMatch) {
+      const radius = Number(radiusMatch[1].replace('p', '.'));
+      const nodeScale = node.getWorldScale(new THREE.Vector3());
+      const displayRadius = radius * Math.abs(nodeScale.x);
+      anchor.flame.scale.set(displayRadius / 0.12, 1, displayRadius / 0.12);
+    }
     scene.add(anchor.flame);
   }
   anchors.push(anchor);
@@ -105,6 +77,7 @@ function directionFor(anchor, output) {
   return output.set(0, 0, 1).applyQuaternion(q).normalize();
 }
 function selectedTurret() { return turrets[Number($('turret').value)]; }
+const effectivePitchRange = pitchRange;
 function updateControls() {
   const t = selectedTurret();
   const present = !!t;
@@ -115,28 +88,26 @@ function updateControls() {
   $('apply-settings').disabled = !movable;
   if (!present) return;
   const cfg = t.settings;
-  [$('yaw').min, $('yaw').max] = cfg.yaw; [$('pitch').min, $('pitch').max] = cfg.pitch;
+  [$('yaw').min, $('yaw').max] = cfg.yaw; [$('pitch').min, $('pitch').max] = effectivePitchRange(t);
   $('yaw').value = t.yaw; $('pitch').value = t.pitch;
   $('yaw-value').textContent = `${t.yaw}°`; $('pitch-value').textContent = `${t.pitch}°`;
-  $('yaw-label').textContent = t.key.startsWith('Side_') ? '포탑 상하 회전' : '포탑 회전';
-  $('pitch-label').textContent = t.key.startsWith('Side_') ? '포신 좌우 회전' : '포신 회전';
+  $('yaw-label').textContent = (t.key.startsWith('Side_') || /^[LR]_Side_D04(?:\.\d+)?$/.test(t.key) || /^D05_side_[np](?:\.\d+)?$/.test(t.key) || /^LC02_aft_[np](?:\.\d+)?$/.test(t.key)) ? '포탑 상하 회전' : '포탑 회전';
+  $('pitch-label').textContent = (t.key.startsWith('Side_') || /^[LR]_Side_D04(?:\.\d+)?$/.test(t.key) || /^D05_side_[np](?:\.\d+)?$/.test(t.key) || /^LC02_aft_[np](?:\.\d+)?$/.test(t.key)) ? '포신 좌우 회전' : '포신 회전';
   $('yaw-axis').value = cfg.yawAxis; $('pitch-axis').value = cfg.pitchAxis;
   $('yaw-min').value = cfg.yaw[0]; $('yaw-max').value = cfg.yaw[1];
   $('pitch-min').value = cfg.pitch[0]; $('pitch-max').value = cfg.pitch[1];
   $('pitch-sign').value = String(cfg.pitchSign);
 }
-function applyAngles(t) {
-  if (!t?.pivot) return;
-  const cfg = t.settings;
-  t.yaw = THREE.MathUtils.clamp(t.yaw, ...cfg.yaw); t.pitch = THREE.MathUtils.clamp(t.pitch, ...cfg.pitch);
-  t.pivot.rotation[cfg.yawAxis] = THREE.MathUtils.degToRad(t.yaw);
-  for (const barrel of t.barrels) barrel.rotation[cfg.pitchAxis] = THREE.MathUtils.degToRad(t.pitch * cfg.pitchSign);
-}
+const applyAngles = applyPose;
 function fire(t) {
+  if (!t) return;
   ship.updateWorldMatrix(true, true);
   for (const anchor of t.muzzles) {
+    const blocked = safety.muzzleBlocked(anchor.node, { radius: .075, range: 36 });
+    if (blocked) { $('status').textContent = `발사 차단 · ${anchor.node.name} · ${blocked.part}`; continue; }
     const shot = new THREE.Mesh(shotGeometry, shotMaterial);
     anchor.node.getWorldPosition(shot.position);
+    shot.position.addScaledVector(directionFor(anchor, new THREE.Vector3()), .075);
     const velocity = directionFor(anchor, new THREE.Vector3()).multiplyScalar(12);
     scene.add(shot);
     shots.push({ mesh: shot, velocity, age: 0 });
@@ -146,7 +117,11 @@ function fire(t) {
 
 async function loadShip(url, label) {
  try {
-  const loaded = await new FBXLoader(manager).loadAsync(url);
+  const response = await fetch(url, {cache:'no-store'});
+  if (!response.ok) throw Error(`FBX HTTP ${response.status}`);
+  const buffer = await response.arrayBuffer();
+  const loaded = new FBXLoader(manager).parse(buffer, '');
+  safety?.dispose();
   if (displayRoot) scene.remove(displayRoot);
   for (const a of anchors) { scene.remove(a.marker); if (a.flame) scene.remove(a.flame); }
   for (const shot of shots) scene.remove(shot.mesh);
@@ -166,10 +141,34 @@ async function loadShip(url, label) {
   ship.updateWorldMatrix(true, true);
   const rig = discoverRig(ship);
   for (const node of rig.engines) addAnchor(node, 'engine', node);
-  for (const weapon of rig.weapons) {
+  for (const weapon of initializeWeapons(ship, rig)) {
     const muzzles = weapon.muzzleNodes.map(node => addAnchor(node, 'muzzle', node));
-    turrets.push({ ...weapon, muzzles, settings: settingsFor(weapon), yaw: 0, pitch: 0 });
+    turrets.push({ ...weapon, muzzles });
   }
+  $('draft-joints').checked = false;
+  safety = new RigSafety(ship, turrets, {allowInferredJoints:false});
+  $('joint-select').replaceChildren();
+  safety.joints.forEach((j,i)=>$('joint-select').add(new Option(`${j.pivot.name} ↔ ${j.parentOwner?.name||'선체'} · 미승인`,i)));
+  const digest = [...new Uint8Array(await crypto.subtle.digest('SHA-256',buffer))].map(x=>x.toString(16).padStart(2,'0')).join('');
+  try {
+    const report = await (await fetch('./rig-analysis.json',{cache:'no-store'})).json();
+    const entry = report.models.find(x=>x.sha256===digest);
+    safety.confirmedNeutral = !!entry && ['Destroyer_01_rigged.fbx','Light_cruiser_01_rigged.fbx'].includes(entry.file);
+    if(safety.confirmedNeutral)safety.captureConfirmedNeutralContacts();
+    let codeMatches=true;
+    for(const file of ['rig-control.js','rig-safety.js']){
+      const source=await (await fetch(`./${file}`,{cache:'no-store'})).arrayBuffer();
+      const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',source))].map(x=>x.toString(16).padStart(2,'0')).join('');
+      if(hash!==report.moduleHashes[file])codeMatches=false;
+    }
+    // User-confirmed reference ships use their neutral baseline. The other
+    // analyzed ships start in the explicitly provisional joint mode.
+    $('draft-joints').checked = !!(entry && codeMatches && !safety.confirmedNeutral);
+    safety.allowInferredJoints = $('draft-joints').checked;
+    if(entry && codeMatches && !safety.confirmedNeutral)safety.precomputed=entry;
+    const open = safety.parts.filter(p=>p.topology.boundaryEdges||p.topology.nonManifoldEdges).length;
+    $('analysis-status').textContent = (entry && codeMatches ? `분석 일치 · ${entry.file} · 접합 후보 ${entry.joints.length}개` : '분석 불일치 · FBX/코드 재분석 필요') + (safety.allowInferredJoints?' · 추정 접합 초안 적용':'') + ` · 열린 메시 ${open}개, 내부 판정 미보증`;
+  } catch { $('analysis-status').textContent = '사전 분석 자료 없음 · 런타임 검사만 사용'; }
   turrets.forEach((t, i) => $('turret').add(new Option(`${t.label} (${t.muzzles.length}개 포구)`, i)));
   $('turret').disabled = !turrets.length; $('reset').disabled = !turrets.length;
   updateControls();
@@ -181,11 +180,18 @@ async function loadShip(url, label) {
 }
   $('turret').addEventListener('change', updateControls);
   for (const id of ['yaw', 'pitch']) $(id).addEventListener('input', () => {
-    const t = selectedTurret(); t[id] = Number($(id).value); applyAngles(t); updateControls();
+    const t = selectedTurret(); if (!t) return;
+    const value = Number($(id).value);
+    const side = id === 'yaw' && t.key.match(/^D01_Broadside_([LR])_/);
+    const targets = side ? turrets.filter(other => other.key.startsWith(`D01_Broadside_${side[1]}_`)) : [t];
+    const result = safety.moveBatch(targets.map(weapon=>({weapon,yaw:id==='yaw'?value:weapon.yaw,pitch:id==='pitch'?value:weapon.pitch})));
+    $('status').textContent = result.allowed ? '이동 검사 통과 · 각도 표본 검사' : `이동 차단 · ${result.reason.a||''} / ${result.reason.b||result.reason.type}`;
+    updateControls();
   });
   $('fire').addEventListener('click', () => { const t = selectedTurret(); if (t) fire(t); });
   $('reset').addEventListener('click', () => {
-    for (const t of turrets) { t.yaw = 0; t.pitch = 0; applyAngles(t); }
+    const result = safety.moveBatch(turrets.filter(t=>t.pivot).map(weapon=>({weapon,yaw:0,pitch:0})));
+    $('status').textContent = result.allowed ? '안전 경로로 초기화됨' : '초기화 경로 차단';
     updateControls();
   });
 $('apply-settings').addEventListener('click', () => {
@@ -195,12 +201,13 @@ $('apply-settings').addEventListener('click', () => {
     $('status').textContent = '회전 범위의 최소값과 최대값을 확인하세요.'; return;
   }
   // 다른 축에 남은 이전 회전은 지우고 새 축에 적용한다.
-  t.pivot.rotation[t.settings.yawAxis] = 0;
-  for (const barrel of t.barrels) barrel.rotation[t.settings.pitchAxis] = 0;
+  const previous = {...t.settings,yaw:[...t.settings.yaw],pitch:[...t.settings.pitch]};
   t.settings = { yaw: values.slice(0,2), pitch: values.slice(2,4), yawAxis: $('yaw-axis').value,
     pitchAxis: $('pitch-axis').value, pitchSign: Number($('pitch-sign').value) };
-  applyAngles(t); updateControls();
-  $('status').textContent = `${t.label} 회전 설정 적용됨`;
+  const result=safety.moveBatch([{weapon:t,yaw:t.yaw,pitch:t.pitch}]);
+  if(!result.allowed){t.settings=previous;applyAngles(t);}
+  updateControls();
+  $('status').textContent=result.allowed?`${t.label} 회전 설정 적용됨`:'설정 변경 차단 · 현재 자세 간섭';
 });
 $('model-file').addEventListener('change', async (event) => {
   const files = [...event.target.files];
@@ -220,7 +227,19 @@ $('model-file').addEventListener('change', async (event) => {
   const url = URL.createObjectURL(models[0]);
   try { await loadShip(url, models[0].name); } finally { URL.revokeObjectURL(url); }
 });
-await loadShip(`${assetRoot}Light_cruiser_01_rigged.fbx`, '작업 폴더 FBX');
+$('draft-joints').addEventListener('change',()=>{safety.allowInferredJoints=$('draft-joints').checked;$('status').textContent=safety.allowInferredJoints?'추정 접합부 허용 · 검수용':'접합부 미승인 차단 모드';});
+$('approve-joint').addEventListener('click',()=>{
+  const i=Number($('joint-select').value),j=safety?.joints[i];if(!j)return;
+  j.status='verified';safety.precomputed=null;
+  $('joint-select').options[i].textContent=`${j.pivot.name} ↔ ${j.parentOwner?.name||'선체'} · 이번 로드 승인`;
+  $('status').textContent='선택 부품 쌍과 접합 영역 승인 · 모델 재로드 시 초기화';
+});
+$('asset-select').addEventListener('change',async()=>loadShip(`${assetRoot}${$('asset-select').value}`,$('asset-select').value));
+for(const family of ['Destroyer','Light_cruiser'])for(let i=1;i<=5;i++){
+  const file=`${family}_${String(i).padStart(2,'0')}_rigged.fbx`;$('asset-select').add(new Option(file,file));
+}
+$('asset-select').value='Light_cruiser_01_rigged.fbx';
+await loadShip(`${assetRoot}Light_cruiser_01_rigged.fbx`, 'Light_cruiser_01_rigged.fbx');
 
 window.addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
@@ -230,6 +249,9 @@ renderer.setAnimationLoop((time) => {
   const dt = Math.min((time - previousTime) / 1000, 0.1); previousTime = time;
   if (ship) {
     ship.updateWorldMatrix(true, true);
+    const joint=safety?.joints[Number($('joint-select').value)];
+    jointMarker.visible=!!joint && $('joint-visible').checked;
+    if(joint){joint.pivot.getWorldPosition(jointMarker.position);jointMarker.scale.setScalar(joint.radius);}
     for (const anchor of anchors) {
       anchor.node.getWorldPosition(anchor.marker.position);
       anchor.marker.visible = $('markers').checked || time < anchor.flashUntil;
@@ -243,7 +265,10 @@ renderer.setAnimationLoop((time) => {
     }
   }
   for (let i = shots.length - 1; i >= 0; i--) {
-    const shot = shots[i]; shot.age += dt; shot.mesh.position.addScaledVector(shot.velocity, dt);
+    const shot = shots[i]; shot.age += dt;
+    const next=shot.mesh.position.clone().addScaledVector(shot.velocity,dt);
+    if(safety?.segmentBlocked(shot.mesh.position,next,.075)){scene.remove(shot.mesh);shots.splice(i,1);continue;}
+    shot.mesh.position.copy(next);
     if (shot.age > 3) { scene.remove(shot.mesh); shots.splice(i, 1); }
   }
   controls.update(); renderer.render(scene, camera);
