@@ -29,7 +29,11 @@ export function discoverRig(root) {
   }
   return { weapons, engines, muzzleCount: muzzles.length };
 }
+// Stable IDs preserve the legacy rig-specific rotation behavior after asset renaming.
+const legacyMounts={"D01":["D01_Hull_L","D01_Hull_R","D01_Broadside_L_21","D01_Broadside_R_21",null,null,"D01_Broadside_L_63","D01_Broadside_R_63","D01_Broadside_L_103","D01_Broadside_R_103"],"D02":[null,null,null,null,"Top_Front_D02","Bottom_D02","Top_Rear_D02","Aft_L_D02","Aft_R_D02"],"D03":[null,null,null,null,"L_F_D03","R_F_D03","L_M_D03","R_M_D03","L_A_D03","R_A_D03"],"D04":[null,null,null,null,null,null,"L_F_D04","R_F_D04","L_Side_D04","R_Side_D04","L_R_D04","R_R_D04","L_Aft_D04","R_Aft_D04"],"D05":[null,null,null,null,"D05_fore","D05_side_p","D05_side_n","D05_aft_p","D05_aft_n"],"LC01":["Side_L","Side_R","Center","Aft_L","Aft_R"],"LC02":["LC02_fore","LC02_mid_p","LC02_mid_n","LC02_aft_p","LC02_aft_n"],"LC03":["LC03_fore","LC03_under","LC03_mid_p","LC03_mid_n"],"LC04":["LC04_under_pos","LC04_under_neg","LC04_fore","LC04_aft_pos","LC04_aft_neg"],"LC05":["LC05_fore_p","LC05_fore_n","LC05_center","LC05_under"]};
+export function legacyWeaponKey(key){const match=/^((?:LC|D)\d{2})_W(\d{2})$/.exec(key);return match?(legacyMounts[match[1]]?.[Number(match[2])-1]||key):key;}
 export function settingsFor(weapon) {
+  weapon={...weapon,key:legacyWeaponKey(weapon.key)};
   const sideD04 = /^[LR]_Side_D04(?:\.\d+)?$/.test(weapon.key); const sideD05 = /^D05_side_[np](?:\.\d+)?$/.test(weapon.key); const sideLC02 = /^LC02_aft_[np](?:\.\d+)?$/.test(weapon.key); const localSide = sideD04 || sideD05 || sideLC02; const side = weapon.key.startsWith('Side_') || localSide;
   // FBXLoader does not expose Blender custom properties on these nodes.
   const broadside = weapon.key.startsWith('D01_Broadside_');
@@ -46,7 +50,7 @@ export function settingsFor(weapon) {
 }
 export function pitchRange(t) {
   const r = t.settings.pitch;
-  if(!/^D01_Hull_[LR]$/.test(t.key) || t.yaw>=0)return r;
+  if(!/^D01_Hull_[LR]$/.test(legacyWeaponKey(t.key)) || t.yaw>=0)return r;
   const lo=Math.max(r[0],-15),hi=Math.min(r[1],0);
   return lo<=hi?[lo,hi]:[0,0];
 }
@@ -56,7 +60,7 @@ export function applyPose(t) {
   const c = t.settings;
   t.yaw = THREE.MathUtils.clamp(t.yaw, ...c.yaw);
   t.pitch = THREE.MathUtils.clamp(t.pitch, ...pitchRange(t));
-  const yawSign = t.key === 'D01_Hull_L' ? -1 : 1;
+  const yawSign = legacyWeaponKey(t.key) === 'D01_Hull_L' ? -1 : 1;
   t.pivot.quaternion.copy(t.restTurret).multiply(new THREE.Quaternion().setFromAxisAngle(axis(c.yawAxis), THREE.MathUtils.degToRad(t.yaw * yawSign)));
   t.barrels.forEach((b, i) => b.quaternion.copy(t.restBarrels[i]).multiply(new THREE.Quaternion().setFromAxisAngle(axis(c.pitchAxis), THREE.MathUtils.degToRad(t.pitch * c.pitchSign))));
 }
@@ -66,7 +70,7 @@ export function initializeWeapons(root, rig) {
   return rig.weapons.map(w => {
     const t = { ...w, settings: settingsFor(w), yaw: 0, pitch: 0, restTurret: w.pivot?.quaternion.clone(), restBarrels: w.barrels.map(b => b.quaternion.clone()), inference: null };
     // Existing user overrides are authoritative. Infer only the outward sign of otherwise generic mounts.
-    const known = presetLimits[w.key] || /D01_|D04|D05_side_|LC02_aft_|D02/.test(w.key);
+    const originalKey=legacyWeaponKey(w.key);const known = presetLimits[originalKey] || /D01_|D04|D05_side_|LC02_aft_|D02/.test(originalKey);
     if (!known && w.barrels.length && w.muzzleNodes.length) {
       const b = w.barrels[0], m = w.muzzleNodes.find(m=>hasAncestor(m,b)) || w.muzzleNodes[0], before = m.getWorldPosition(new THREE.Vector3());
       const mount = b.getWorldPosition(new THREE.Vector3()), outward = mount.clone().sub(center); outward.x = 0;

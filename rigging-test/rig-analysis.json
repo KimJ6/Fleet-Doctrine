@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-22T17:32:47.551Z",
+  "generatedAt": "2026-11-24T14:54:34.040Z",
   "scope": "sampled fixed geometry; no continuous safety certification",
   "moduleHashes": {
-    "rig-control.js": "60d9aee8d22ae952f9b52ea55bb4e1288dcf3b5e06bf9525e905a4a0ad63799e",
+    "rig-control.js": "79888d19f9887e4649adcafb56fe1e9962217319f07ea7e08410d8e33f6506fb",
     "rig-safety.js": "5fdfcc4acef90a690d9087e6772292ed86230e0ad096051a7c4d9799af88dd4f"
   },
   "models": [
     {
       "file": "Destroyer_01_rigged.fbx",
-      "sha256": "4d3d8e64e8d945ed3278e28b4904e51a46ff04de5c6d9b9ee7f46fd646077a8b",
+      "sha256": "a92562cfcc8cb7c73d03e7cd2a908b0bf7498782cefd4cf9e8c545d65031fe56",
       "triangles": 13939,
       "meshes": 15,
       "engines": 4,
@@ -108,109 +108,109 @@
       ],
       "joints": [
         {
-          "pivot": "PIVOT_Barrel_D01_Broadside_R_63",
-          "parent": "PIVOT_Turret_D01_Broadside_R_63",
+          "pivot": "PIVOT_Barrel_D01_W08_B01",
+          "parent": "PIVOT_Turret_D01_W08",
           "radius": 0.09054469968570851,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D01_Broadside_R_63",
+          "pivot": "PIVOT_Barrel_D01_W08_B01",
           "parent": "fixed",
           "radius": 0.09054469968570851,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D01_Broadside_L_103",
-          "parent": "PIVOT_Turret_D01_Broadside_L_103",
+          "pivot": "PIVOT_Barrel_D01_W09_B01",
+          "parent": "PIVOT_Turret_D01_W09",
           "radius": 0.09054469968570827,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D01_Broadside_L_103",
+          "pivot": "PIVOT_Barrel_D01_W09_B01",
           "parent": "fixed",
           "radius": 0.09054469968570827,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D01_Broadside_L_63",
-          "parent": "PIVOT_Turret_D01_Broadside_L_63",
+          "pivot": "PIVOT_Barrel_D01_W07_B01",
+          "parent": "PIVOT_Turret_D01_W07",
           "radius": 0.09054469968570827,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D01_Broadside_L_63",
+          "pivot": "PIVOT_Barrel_D01_W07_B01",
           "parent": "fixed",
           "radius": 0.09054469968570827,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_D01_Hull_L",
+          "pivot": "PIVOT_Turret_D01_W01",
           "parent": "fixed",
           "radius": 0.5668142082948435,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D01_Hull_L",
-          "parent": "PIVOT_Turret_D01_Hull_L",
+          "pivot": "PIVOT_Barrel_D01_W01_B01",
+          "parent": "PIVOT_Turret_D01_W01",
           "radius": 0.34926958134541314,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D01_Hull_L",
+          "pivot": "PIVOT_Barrel_D01_W01_B01",
           "parent": "fixed",
           "radius": 0.34926958134541314,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D01_Broadside_R_21",
-          "parent": "PIVOT_Turret_D01_Broadside_R_21",
+          "pivot": "PIVOT_Barrel_D01_W04_B01",
+          "parent": "PIVOT_Turret_D01_W04",
           "radius": 0.09054590905436301,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D01_Broadside_R_21",
+          "pivot": "PIVOT_Barrel_D01_W04_B01",
           "parent": "fixed",
           "radius": 0.09054590905436301,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_D01_Hull_R",
+          "pivot": "PIVOT_Turret_D01_W02",
           "parent": "fixed",
           "radius": 0.5668142082948435,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D01_Hull_R",
-          "parent": "PIVOT_Turret_D01_Hull_R",
+          "pivot": "PIVOT_Barrel_D01_W02_B01",
+          "parent": "PIVOT_Turret_D01_W02",
           "radius": 0.3492696966188599,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D01_Hull_R",
+          "pivot": "PIVOT_Barrel_D01_W02_B01",
           "parent": "fixed",
           "radius": 0.3492696966188599,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D01_Broadside_L_21",
-          "parent": "PIVOT_Turret_D01_Broadside_L_21",
+          "pivot": "PIVOT_Barrel_D01_W03_B01",
+          "parent": "PIVOT_Turret_D01_W03",
           "radius": 0.09054590905436301,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D01_Broadside_L_21",
+          "pivot": "PIVOT_Barrel_D01_W03_B01",
           "parent": "fixed",
           "radius": 0.09054590905436301,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D01_Broadside_R_103",
-          "parent": "PIVOT_Turret_D01_Broadside_R_103",
+          "pivot": "PIVOT_Barrel_D01_W10_B01",
+          "parent": "PIVOT_Turret_D01_W10",
           "radius": 0.09054469968570851,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D01_Broadside_R_103",
+          "pivot": "PIVOT_Barrel_D01_W10_B01",
           "parent": "fixed",
           "radius": 0.09054469968570851,
           "status": "candidate"
@@ -219,7 +219,7 @@
       "neutralCollision": null,
       "weapons": [
         {
-          "key": "D01_Broadside_R_63",
+          "key": "D01_W08",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -238,7 +238,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_D01_Broadside_R_63",
+              "muzzle": "FX_Muzzle_D01_W08_B01",
               "blocked": null
             }
           ],
@@ -353,7 +353,7 @@
           }
         },
         {
-          "key": "D01_Broadside_L_103",
+          "key": "D01_W09",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -372,7 +372,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_D01_Broadside_L_103",
+              "muzzle": "FX_Muzzle_D01_W09_B01",
               "blocked": null
             }
           ],
@@ -487,7 +487,7 @@
           }
         },
         {
-          "key": "D01_Broadside_L_63",
+          "key": "D01_W07",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -506,7 +506,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_D01_Broadside_L_63",
+              "muzzle": "FX_Muzzle_D01_W07_B01",
               "blocked": null
             }
           ],
@@ -621,7 +621,7 @@
           }
         },
         {
-          "key": "D01_Hull_L",
+          "key": "D01_W01",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -640,7 +640,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_D01_Hull_L",
+              "muzzle": "FX_Muzzle_D01_W01_B01",
               "blocked": null
             }
           ],
@@ -755,7 +755,7 @@
           }
         },
         {
-          "key": "D01_Broadside_R_21",
+          "key": "D01_W04",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -774,7 +774,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_D01_Broadside_R_21",
+              "muzzle": "FX_Muzzle_D01_W04_B01",
               "blocked": null
             }
           ],
@@ -889,7 +889,7 @@
           }
         },
         {
-          "key": "D01_Hull_R",
+          "key": "D01_W02",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -908,7 +908,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_D01_Hull_R",
+              "muzzle": "FX_Muzzle_D01_W02_B01",
               "blocked": null
             }
           ],
@@ -1023,7 +1023,7 @@
           }
         },
         {
-          "key": "D01_Broadside_L_21",
+          "key": "D01_W03",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -1042,7 +1042,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_D01_Broadside_L_21",
+              "muzzle": "FX_Muzzle_D01_W03_B01",
               "blocked": null
             }
           ],
@@ -1157,7 +1157,7 @@
           }
         },
         {
-          "key": "D01_Broadside_R_103",
+          "key": "D01_W10",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -1176,7 +1176,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_D01_Broadside_R_103",
+              "muzzle": "FX_Muzzle_D01_W10_B01",
               "blocked": null
             }
           ],
@@ -1291,7 +1291,7 @@
           }
         },
         {
-          "key": "Fixed_D01_Pod_R",
+          "key": "Fixed_D01_W06_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -1310,14 +1310,14 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_D01_Pod_R",
+              "muzzle": "FX_Muzzle_D01_W06_B01",
               "blocked": null
             }
           ],
           "samples": []
         },
         {
-          "key": "Fixed_D01_Pod_L",
+          "key": "Fixed_D01_W05_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -1336,18 +1336,18 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_D01_Pod_L",
+              "muzzle": "FX_Muzzle_D01_W05_B01",
               "blocked": null
             }
           ],
           "samples": []
         }
       ],
-      "elapsedMs": 385.89
+      "elapsedMs": 242.71
     },
     {
       "file": "Destroyer_02_rigged.fbx",
-      "sha256": "e8f98b0fa658db0b4ee4367ac6e7dab87d3016b3c13eb196965666c7bb94c608",
+      "sha256": "fefe14f2a0e265c7a872e073ec15cfafe33f14c2679285893e1e4037fde84409",
       "triangles": 14526,
       "meshes": 20,
       "engines": 6,
@@ -1476,127 +1476,127 @@
       ],
       "joints": [
         {
-          "pivot": "PIVOT_Turret_Aft_L_D02",
+          "pivot": "PIVOT_Turret_D02_W08",
           "parent": "fixed",
           "radius": 0.42501527777697135,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Aft_L_D02",
-          "parent": "PIVOT_Turret_Aft_L_D02",
+          "pivot": "PIVOT_Barrel_D02_W08_B01",
+          "parent": "PIVOT_Turret_D02_W08",
           "radius": 0.13742522941955573,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Aft_L_D02",
+          "pivot": "PIVOT_Barrel_D02_W08_B01",
           "parent": "fixed",
           "radius": 0.13742522941955573,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_Top_Front_D02",
+          "pivot": "PIVOT_Turret_D02_W05",
           "parent": "fixed",
           "radius": 0.2022150890463692,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Top_Front_R_D02",
-          "parent": "PIVOT_Turret_Top_Front_D02",
+          "pivot": "PIVOT_Barrel_D02_W05_B02",
+          "parent": "PIVOT_Turret_D02_W05",
           "radius": 0.041612706718223924,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Top_Front_R_D02",
+          "pivot": "PIVOT_Barrel_D02_W05_B02",
           "parent": "fixed",
           "radius": 0.041612706718223924,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Top_Front_L_D02",
-          "parent": "PIVOT_Turret_Top_Front_D02",
+          "pivot": "PIVOT_Barrel_D02_W05_B01",
+          "parent": "PIVOT_Turret_D02_W05",
           "radius": 0.04161270671822442,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Top_Front_L_D02",
+          "pivot": "PIVOT_Barrel_D02_W05_B01",
           "parent": "fixed",
           "radius": 0.04161270671822442,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_Bottom_D02",
+          "pivot": "PIVOT_Turret_D02_W06",
           "parent": "fixed",
           "radius": 0.20221508904637275,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Bottom_R_D02",
-          "parent": "PIVOT_Turret_Bottom_D02",
+          "pivot": "PIVOT_Barrel_D02_W06_B02",
+          "parent": "PIVOT_Turret_D02_W06",
           "radius": 0.041612800232037596,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Bottom_R_D02",
+          "pivot": "PIVOT_Barrel_D02_W06_B02",
           "parent": "fixed",
           "radius": 0.041612800232037596,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Bottom_L_D02",
-          "parent": "PIVOT_Turret_Bottom_D02",
+          "pivot": "PIVOT_Barrel_D02_W06_B01",
+          "parent": "PIVOT_Turret_D02_W06",
           "radius": 0.04161280023203723,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Bottom_L_D02",
+          "pivot": "PIVOT_Barrel_D02_W06_B01",
           "parent": "fixed",
           "radius": 0.04161280023203723,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_Aft_R_D02",
+          "pivot": "PIVOT_Turret_D02_W09",
           "parent": "fixed",
           "radius": 0.42501527777697135,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Aft_R_D02",
-          "parent": "PIVOT_Turret_Aft_R_D02",
+          "pivot": "PIVOT_Barrel_D02_W09_B01",
+          "parent": "PIVOT_Turret_D02_W09",
           "radius": 0.13742522941955573,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Aft_R_D02",
+          "pivot": "PIVOT_Barrel_D02_W09_B01",
           "parent": "fixed",
           "radius": 0.13742522941955573,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_Top_Rear_D02",
+          "pivot": "PIVOT_Turret_D02_W07",
           "parent": "fixed",
           "radius": 0.20221363816536808,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Top_Rear_R_D02",
-          "parent": "PIVOT_Turret_Top_Rear_D02",
+          "pivot": "PIVOT_Barrel_D02_W07_B02",
+          "parent": "PIVOT_Turret_D02_W07",
           "radius": 0.041612706718223924,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Top_Rear_R_D02",
+          "pivot": "PIVOT_Barrel_D02_W07_B02",
           "parent": "fixed",
           "radius": 0.041612706718223924,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Top_Rear_L_D02",
-          "parent": "PIVOT_Turret_Top_Rear_D02",
+          "pivot": "PIVOT_Barrel_D02_W07_B01",
+          "parent": "PIVOT_Turret_D02_W07",
           "radius": 0.04161270671822442,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Top_Rear_L_D02",
+          "pivot": "PIVOT_Barrel_D02_W07_B01",
           "parent": "fixed",
           "radius": 0.04161270671822442,
           "status": "candidate"
@@ -1614,7 +1614,7 @@
       },
       "weapons": [
         {
-          "key": "Aft_L_D02",
+          "key": "D02_W08",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -1633,7 +1633,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Aft_L_D02",
+              "muzzle": "FX_Muzzle_D02_W08_B01",
               "blocked": null
             }
           ],
@@ -2261,7 +2261,7 @@
           }
         },
         {
-          "key": "Top_Front_D02",
+          "key": "D02_W05",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -2280,11 +2280,11 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Top_Front_R_D02",
+              "muzzle": "FX_Muzzle_D02_W05_B02",
               "blocked": null
             },
             {
-              "muzzle": "FX_Muzzle_Top_Front_L_D02",
+              "muzzle": "FX_Muzzle_D02_W05_B01",
               "blocked": null
             }
           ],
@@ -2894,7 +2894,7 @@
           }
         },
         {
-          "key": "Bottom_D02",
+          "key": "D02_W06",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -2913,11 +2913,11 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Bottom_R_D02",
+              "muzzle": "FX_Muzzle_D02_W06_B02",
               "blocked": null
             },
             {
-              "muzzle": "FX_Muzzle_Bottom_L_D02",
+              "muzzle": "FX_Muzzle_D02_W06_B01",
               "blocked": null
             }
           ],
@@ -3563,7 +3563,7 @@
           }
         },
         {
-          "key": "Aft_R_D02",
+          "key": "D02_W09",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -3582,7 +3582,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Aft_R_D02",
+              "muzzle": "FX_Muzzle_D02_W09_B01",
               "blocked": null
             }
           ],
@@ -4192,7 +4192,7 @@
           }
         },
         {
-          "key": "Top_Rear_D02",
+          "key": "D02_W07",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -4211,14 +4211,14 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Top_Rear_R_D02",
+              "muzzle": "FX_Muzzle_D02_W07_B02",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D02_Barrel_Top_Front_R"
               }
             },
             {
-              "muzzle": "FX_Muzzle_Top_Rear_L_D02",
+              "muzzle": "FX_Muzzle_D02_W07_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D02_Barrel_Top_Front_L"
@@ -4849,7 +4849,7 @@
           }
         },
         {
-          "key": "Fixed_Fixed_Fore_D02_4",
+          "key": "Fixed_D02_W03_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -4868,14 +4868,14 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Fixed_Fore_D02_4",
+              "muzzle": "FX_Muzzle_D02_W03_B01",
               "blocked": null
             }
           ],
           "samples": []
         },
         {
-          "key": "Fixed_Fixed_Fore_D02_1",
+          "key": "Fixed_D02_W04_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -4894,14 +4894,14 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Fixed_Fore_D02_1",
+              "muzzle": "FX_Muzzle_D02_W04_B01",
               "blocked": null
             }
           ],
           "samples": []
         },
         {
-          "key": "Fixed_Fixed_Fore_D02_2",
+          "key": "Fixed_D02_W02_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -4920,14 +4920,14 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Fixed_Fore_D02_2",
+              "muzzle": "FX_Muzzle_D02_W02_B01",
               "blocked": null
             }
           ],
           "samples": []
         },
         {
-          "key": "Fixed_Fixed_Fore_D02_3",
+          "key": "Fixed_D02_W01_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -4946,18 +4946,18 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Fixed_Fore_D02_3",
+              "muzzle": "FX_Muzzle_D02_W01_B01",
               "blocked": null
             }
           ],
           "samples": []
         }
       ],
-      "elapsedMs": 568.98
+      "elapsedMs": 317.39
     },
     {
       "file": "Destroyer_03_rigged.fbx",
-      "sha256": "ea83848cffc65f95c93ebe9dde03abe0b932d89fd5119176391f01e6c2db68ed",
+      "sha256": "be898eb688fc2db531e2cb0bf9d76c77a948f75271d3d4b27bad8ef98e26d70d",
       "triangles": 14782,
       "meshes": 23,
       "engines": 3,
@@ -5104,133 +5104,133 @@
       ],
       "joints": [
         {
-          "pivot": "PIVOT_Turret_R_A_D03",
+          "pivot": "PIVOT_Turret_D03_W10",
           "parent": "fixed",
           "radius": 0.326319837868863,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_A_146_D03",
-          "parent": "PIVOT_Turret_R_A_D03",
+          "pivot": "PIVOT_Barrel_D03_W10_B02",
+          "parent": "PIVOT_Turret_D03_W10",
           "radius": 0.1349820599267422,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_A_146_D03",
+          "pivot": "PIVOT_Barrel_D03_W10_B02",
           "parent": "fixed",
           "radius": 0.1349820599267422,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_A_100_D03",
-          "parent": "PIVOT_Turret_R_A_D03",
+          "pivot": "PIVOT_Barrel_D03_W10_B01",
+          "parent": "PIVOT_Turret_D03_W10",
           "radius": 0.13498196766743178,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_A_100_D03",
+          "pivot": "PIVOT_Barrel_D03_W10_B01",
           "parent": "fixed",
           "radius": 0.13498196766743178,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_L_F_D03",
+          "pivot": "PIVOT_Turret_D03_W05",
           "parent": "fixed",
           "radius": 0.24919716273183035,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_F_D03",
-          "parent": "PIVOT_Turret_L_F_D03",
+          "pivot": "PIVOT_Barrel_D03_W05_B01",
+          "parent": "PIVOT_Turret_D03_W05",
           "radius": 0.09624901399089815,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_F_D03",
+          "pivot": "PIVOT_Barrel_D03_W05_B01",
           "parent": "fixed",
           "radius": 0.09624901399089815,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_L_M_D03",
+          "pivot": "PIVOT_Turret_D03_W07",
           "parent": "fixed",
           "radius": 0.24919716273182857,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_M_D03",
-          "parent": "PIVOT_Turret_L_M_D03",
+          "pivot": "PIVOT_Barrel_D03_W07_B01",
+          "parent": "PIVOT_Turret_D03_W07",
           "radius": 0.09624901399089815,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_M_D03",
+          "pivot": "PIVOT_Barrel_D03_W07_B01",
           "parent": "fixed",
           "radius": 0.09624901399089815,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_R_F_D03",
+          "pivot": "PIVOT_Turret_D03_W06",
           "parent": "fixed",
           "radius": 0.24919716273183035,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_F_D03",
-          "parent": "PIVOT_Turret_R_F_D03",
+          "pivot": "PIVOT_Barrel_D03_W06_B01",
+          "parent": "PIVOT_Turret_D03_W06",
           "radius": 0.09624892534405485,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_F_D03",
+          "pivot": "PIVOT_Barrel_D03_W06_B01",
           "parent": "fixed",
           "radius": 0.09624892534405485,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_L_A_D03",
+          "pivot": "PIVOT_Turret_D03_W09",
           "parent": "fixed",
           "radius": 0.32631983786886276,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_A_146_D03",
-          "parent": "PIVOT_Turret_L_A_D03",
+          "pivot": "PIVOT_Barrel_D03_W09_B01",
+          "parent": "PIVOT_Turret_D03_W09",
           "radius": 0.13498206603273802,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_A_146_D03",
+          "pivot": "PIVOT_Barrel_D03_W09_B01",
           "parent": "fixed",
           "radius": 0.13498206603273802,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_A_100_D03",
-          "parent": "PIVOT_Turret_L_A_D03",
+          "pivot": "PIVOT_Barrel_D03_W09_B02",
+          "parent": "PIVOT_Turret_D03_W09",
           "radius": 0.13498196156126926,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_A_100_D03",
+          "pivot": "PIVOT_Barrel_D03_W09_B02",
           "parent": "fixed",
           "radius": 0.13498196156126926,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_R_M_D03",
+          "pivot": "PIVOT_Turret_D03_W08",
           "parent": "fixed",
           "radius": 0.24919716273182857,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_M_D03",
-          "parent": "PIVOT_Turret_R_M_D03",
+          "pivot": "PIVOT_Barrel_D03_W08_B01",
+          "parent": "PIVOT_Turret_D03_W08",
           "radius": 0.0962489253440893,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_M_D03",
+          "pivot": "PIVOT_Barrel_D03_W08_B01",
           "parent": "fixed",
           "radius": 0.0962489253440893,
           "status": "candidate"
@@ -5248,7 +5248,7 @@
       },
       "weapons": [
         {
-          "key": "R_A_D03",
+          "key": "D03_W10",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -5267,14 +5267,14 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_R_A_146_D03",
+              "muzzle": "FX_Muzzle_D03_W10_B02",
               "blocked": {
                 "type": "fire-path",
                 "part": "D03_Turret_R_F"
               }
             },
             {
-              "muzzle": "FX_Muzzle_R_A_100_D03",
+              "muzzle": "FX_Muzzle_D03_W10_B01",
               "blocked": {
                 "type": "fire-path",
                 "part": "D03_Turret_R_F"
@@ -5923,7 +5923,7 @@
           }
         },
         {
-          "key": "L_F_D03",
+          "key": "D03_W05",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -5942,7 +5942,7 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_L_F_D03",
+              "muzzle": "FX_Muzzle_D03_W05_B01",
               "blocked": null
             }
           ],
@@ -6714,7 +6714,7 @@
           }
         },
         {
-          "key": "L_M_D03",
+          "key": "D03_W07",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -6733,7 +6733,7 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_L_M_D03",
+              "muzzle": "FX_Muzzle_D03_W07_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D03_Turret_L_F"
@@ -7508,7 +7508,7 @@
           }
         },
         {
-          "key": "R_F_D03",
+          "key": "D03_W06",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -7527,7 +7527,7 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_R_F_D03",
+              "muzzle": "FX_Muzzle_D03_W06_B01",
               "blocked": null
             }
           ],
@@ -8299,7 +8299,7 @@
           }
         },
         {
-          "key": "L_A_D03",
+          "key": "D03_W09",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -8318,14 +8318,14 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_L_A_146_D03",
+              "muzzle": "FX_Muzzle_D03_W09_B01",
               "blocked": {
                 "type": "fire-path",
                 "part": "D03_Turret_L_F"
               }
             },
             {
-              "muzzle": "FX_Muzzle_L_A_100_D03",
+              "muzzle": "FX_Muzzle_D03_W09_B02",
               "blocked": {
                 "type": "fire-path",
                 "part": "D03_Turret_L_F"
@@ -8974,7 +8974,7 @@
           }
         },
         {
-          "key": "R_M_D03",
+          "key": "D03_W08",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -8993,7 +8993,7 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_R_M_D03",
+              "muzzle": "FX_Muzzle_D03_W08_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D03_Turret_R_F"
@@ -9768,7 +9768,7 @@
           }
         },
         {
-          "key": "Fixed_Fixed_R_Upper_D03",
+          "key": "Fixed_D03_W02_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -9787,14 +9787,14 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Fixed_R_Upper_D03",
+              "muzzle": "FX_Muzzle_D03_W02_B01",
               "blocked": null
             }
           ],
           "samples": []
         },
         {
-          "key": "Fixed_Fixed_L_Upper_D03",
+          "key": "Fixed_D03_W01_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -9813,14 +9813,14 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Fixed_L_Upper_D03",
+              "muzzle": "FX_Muzzle_D03_W01_B01",
               "blocked": null
             }
           ],
           "samples": []
         },
         {
-          "key": "Fixed_Fixed_R_Lower_D03",
+          "key": "Fixed_D03_W04_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -9839,7 +9839,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Fixed_R_Lower_D03",
+              "muzzle": "FX_Muzzle_D03_W04_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D03_Hull"
@@ -9849,7 +9849,7 @@
           "samples": []
         },
         {
-          "key": "Fixed_Fixed_L_Lower_D03",
+          "key": "Fixed_D03_W03_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -9868,7 +9868,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Fixed_L_Lower_D03",
+              "muzzle": "FX_Muzzle_D03_W03_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D03_Hull"
@@ -9878,11 +9878,11 @@
           "samples": []
         }
       ],
-      "elapsedMs": 541.37
+      "elapsedMs": 307.14
     },
     {
       "file": "Destroyer_04_rigged.fbx",
-      "sha256": "fda3c12f785ea4774412a9ca5ebc6456dcccb9b6bd3156954365d52e3e2a9476",
+      "sha256": "718dd8334b94edec3c7b5d521ea1109caf323e1824d17a743cd4400f23b8e7fb",
       "triangles": 18670,
       "meshes": 25,
       "engines": 6,
@@ -10041,193 +10041,193 @@
       ],
       "joints": [
         {
-          "pivot": "PIVOT_Turret_R_Aft_D04",
+          "pivot": "PIVOT_Turret_D04_W14",
           "parent": "fixed",
           "radius": 0.2122740692892077,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_Aft_D04",
-          "parent": "PIVOT_Turret_R_Aft_D04",
+          "pivot": "PIVOT_Barrel_D04_W14_B01",
+          "parent": "PIVOT_Turret_D04_W14",
           "radius": 0.07836814880777934,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_Aft_D04",
+          "pivot": "PIVOT_Barrel_D04_W14_B01",
           "parent": "fixed",
           "radius": 0.07836814880777934,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_L_Aft_D04",
+          "pivot": "PIVOT_Turret_D04_W13",
           "parent": "fixed",
           "radius": 0.21227408242613202,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_Aft_D04",
-          "parent": "PIVOT_Turret_L_Aft_D04",
+          "pivot": "PIVOT_Barrel_D04_W13_B01",
+          "parent": "PIVOT_Turret_D04_W13",
           "radius": 0.07836826441271341,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_Aft_D04",
+          "pivot": "PIVOT_Barrel_D04_W13_B01",
           "parent": "fixed",
           "radius": 0.07836826441271341,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_R_F_D04",
+          "pivot": "PIVOT_Turret_D04_W08",
           "parent": "fixed",
           "radius": 0.27043819762972277,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_F_115_D04",
-          "parent": "PIVOT_Turret_R_F_D04",
+          "pivot": "PIVOT_Barrel_D04_W08_B01",
+          "parent": "PIVOT_Turret_D04_W08",
           "radius": 0.07836803495533232,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_F_115_D04",
+          "pivot": "PIVOT_Barrel_D04_W08_B01",
           "parent": "fixed",
           "radius": 0.07836803495533232,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_F_123_D04",
-          "parent": "PIVOT_Turret_R_F_D04",
+          "pivot": "PIVOT_Barrel_D04_W08_B02",
+          "parent": "PIVOT_Turret_D04_W08",
           "radius": 0.0783682661652007,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_F_123_D04",
+          "pivot": "PIVOT_Barrel_D04_W08_B02",
           "parent": "fixed",
           "radius": 0.0783682661652007,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_L_R_D04",
+          "pivot": "PIVOT_Turret_D04_W11",
           "parent": "fixed",
           "radius": 0.27043819762972277,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_R_123_D04",
-          "parent": "PIVOT_Turret_L_R_D04",
+          "pivot": "PIVOT_Barrel_D04_W11_B01",
+          "parent": "PIVOT_Turret_D04_W11",
           "radius": 0.07836815056026614,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_R_123_D04",
+          "pivot": "PIVOT_Barrel_D04_W11_B01",
           "parent": "fixed",
           "radius": 0.07836815056026614,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_R_115_D04",
-          "parent": "PIVOT_Turret_L_R_D04",
+          "pivot": "PIVOT_Barrel_D04_W11_B02",
+          "parent": "PIVOT_Turret_D04_W11",
           "radius": 0.07836815056026614,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_R_115_D04",
+          "pivot": "PIVOT_Barrel_D04_W11_B02",
           "parent": "fixed",
           "radius": 0.07836815056026614,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_L_F_D04",
+          "pivot": "PIVOT_Turret_D04_W07",
           "parent": "fixed",
           "radius": 0.27043819762972277,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_F_115_D04",
-          "parent": "PIVOT_Turret_L_F_D04",
+          "pivot": "PIVOT_Barrel_D04_W07_B02",
+          "parent": "PIVOT_Turret_D04_W07",
           "radius": 0.07836815056026664,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_F_115_D04",
+          "pivot": "PIVOT_Barrel_D04_W07_B02",
           "parent": "fixed",
           "radius": 0.07836815056026664,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_F_123_D04",
-          "parent": "PIVOT_Turret_L_F_D04",
+          "pivot": "PIVOT_Barrel_D04_W07_B01",
+          "parent": "PIVOT_Turret_D04_W07",
           "radius": 0.07836803495533232,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_F_123_D04",
+          "pivot": "PIVOT_Barrel_D04_W07_B01",
           "parent": "fixed",
           "radius": 0.07836803495533232,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_L_Side_D04",
+          "pivot": "PIVOT_Turret_D04_W09",
           "parent": "fixed",
           "radius": 0.19334329117427496,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_Side_D04",
-          "parent": "PIVOT_Turret_L_Side_D04",
+          "pivot": "PIVOT_Barrel_D04_W09_B01",
+          "parent": "PIVOT_Turret_D04_W09",
           "radius": 0.11046218908948875,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_L_Side_D04",
+          "pivot": "PIVOT_Barrel_D04_W09_B01",
           "parent": "fixed",
           "radius": 0.11046218908948875,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_R_Side_D04",
+          "pivot": "PIVOT_Turret_D04_W10",
           "parent": "fixed",
           "radius": 0.193343291174275,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_Side_D04",
-          "parent": "PIVOT_Turret_R_Side_D04",
+          "pivot": "PIVOT_Barrel_D04_W10_B01",
+          "parent": "PIVOT_Turret_D04_W10",
           "radius": 0.11046218908948875,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_Side_D04",
+          "pivot": "PIVOT_Barrel_D04_W10_B01",
           "parent": "fixed",
           "radius": 0.11046218908948875,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_R_R_D04",
+          "pivot": "PIVOT_Turret_D04_W12",
           "parent": "fixed",
           "radius": 0.27043819762972277,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_R_115_D04",
-          "parent": "PIVOT_Turret_R_R_D04",
+          "pivot": "PIVOT_Barrel_D04_W12_B01",
+          "parent": "PIVOT_Turret_D04_W12",
           "radius": 0.07836803495533207,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_R_115_D04",
+          "pivot": "PIVOT_Barrel_D04_W12_B01",
           "parent": "fixed",
           "radius": 0.07836803495533207,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_R_123_D04",
-          "parent": "PIVOT_Turret_R_R_D04",
+          "pivot": "PIVOT_Barrel_D04_W12_B02",
+          "parent": "PIVOT_Turret_D04_W12",
           "radius": 0.07836803495533207,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_R_R_123_D04",
+          "pivot": "PIVOT_Barrel_D04_W12_B02",
           "parent": "fixed",
           "radius": 0.07836803495533207,
           "status": "candidate"
@@ -10245,7 +10245,7 @@
       },
       "weapons": [
         {
-          "key": "R_Aft_D04",
+          "key": "D04_W14",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -10264,7 +10264,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_R_Aft_D04",
+              "muzzle": "FX_Muzzle_D04_W14_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D04_Hull"
@@ -11228,7 +11228,7 @@
           }
         },
         {
-          "key": "L_Aft_D04",
+          "key": "D04_W13",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -11247,7 +11247,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_L_Aft_D04",
+              "muzzle": "FX_Muzzle_D04_W13_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D04_Hull"
@@ -12211,7 +12211,7 @@
           }
         },
         {
-          "key": "R_F_D04",
+          "key": "D04_W08",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -12230,11 +12230,11 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_R_F_115_D04",
+              "muzzle": "FX_Muzzle_D04_W08_B01",
               "blocked": null
             },
             {
-              "muzzle": "FX_Muzzle_R_F_123_D04",
+              "muzzle": "FX_Muzzle_D04_W08_B02",
               "blocked": null
             }
           ],
@@ -12925,7 +12925,7 @@
           }
         },
         {
-          "key": "L_R_D04",
+          "key": "D04_W11",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -12944,14 +12944,14 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_L_R_123_D04",
+              "muzzle": "FX_Muzzle_D04_W11_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D04_Turret_L_F"
               }
             },
             {
-              "muzzle": "FX_Muzzle_L_R_115_D04",
+              "muzzle": "FX_Muzzle_D04_W11_B02",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D04_Barrel_L_F_115"
@@ -13636,7 +13636,7 @@
           }
         },
         {
-          "key": "L_F_D04",
+          "key": "D04_W07",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -13655,11 +13655,11 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_L_F_115_D04",
+              "muzzle": "FX_Muzzle_D04_W07_B02",
               "blocked": null
             },
             {
-              "muzzle": "FX_Muzzle_L_F_123_D04",
+              "muzzle": "FX_Muzzle_D04_W07_B01",
               "blocked": null
             }
           ],
@@ -14350,7 +14350,7 @@
           }
         },
         {
-          "key": "L_Side_D04",
+          "key": "D04_W09",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -14369,7 +14369,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_L_Side_D04",
+              "muzzle": "FX_Muzzle_D04_W09_B01",
               "blocked": null
             }
           ],
@@ -15330,7 +15330,7 @@
           }
         },
         {
-          "key": "R_Side_D04",
+          "key": "D04_W10",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -15349,7 +15349,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_R_Side_D04",
+              "muzzle": "FX_Muzzle_D04_W10_B01",
               "blocked": null
             }
           ],
@@ -16310,7 +16310,7 @@
           }
         },
         {
-          "key": "R_R_D04",
+          "key": "D04_W12",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -16329,14 +16329,14 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_R_R_115_D04",
+              "muzzle": "FX_Muzzle_D04_W12_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D04_Barrel_R_F_115"
               }
             },
             {
-              "muzzle": "FX_Muzzle_R_R_123_D04",
+              "muzzle": "FX_Muzzle_D04_W12_B02",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D04_BackCube_R_F"
@@ -17021,7 +17021,7 @@
           }
         },
         {
-          "key": "Fixed_Fixed_R_3_D04",
+          "key": "Fixed_D04_W05_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -17040,7 +17040,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Fixed_R_3_D04",
+              "muzzle": "FX_Muzzle_D04_W05_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D04_Hull"
@@ -17050,7 +17050,7 @@
           "samples": []
         },
         {
-          "key": "Fixed_Fixed_L_3_D04",
+          "key": "Fixed_D04_W03_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -17069,7 +17069,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Fixed_L_3_D04",
+              "muzzle": "FX_Muzzle_D04_W03_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D04_Hull"
@@ -17079,7 +17079,7 @@
           "samples": []
         },
         {
-          "key": "Fixed_Fixed_R_1_D04",
+          "key": "Fixed_D04_W06_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -17098,7 +17098,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Fixed_R_1_D04",
+              "muzzle": "FX_Muzzle_D04_W06_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D04_Hull"
@@ -17108,7 +17108,7 @@
           "samples": []
         },
         {
-          "key": "Fixed_Fixed_L_2_D04",
+          "key": "Fixed_D04_W01_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -17127,7 +17127,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Fixed_L_2_D04",
+              "muzzle": "FX_Muzzle_D04_W01_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D04_Hull"
@@ -17137,7 +17137,7 @@
           "samples": []
         },
         {
-          "key": "Fixed_Fixed_R_2_D04",
+          "key": "Fixed_D04_W02_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -17156,7 +17156,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Fixed_R_2_D04",
+              "muzzle": "FX_Muzzle_D04_W02_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D04_Hull"
@@ -17166,7 +17166,7 @@
           "samples": []
         },
         {
-          "key": "Fixed_Fixed_L_1_D04",
+          "key": "Fixed_D04_W04_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -17185,7 +17185,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Fixed_L_1_D04",
+              "muzzle": "FX_Muzzle_D04_W04_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D04_Hull"
@@ -17195,11 +17195,11 @@
           "samples": []
         }
       ],
-      "elapsedMs": 545.68
+      "elapsedMs": 234.61
     },
     {
       "file": "Destroyer_05_rigged.fbx",
-      "sha256": "c57b1188804cabe1f8998e52ea114108e4f780b7b0cdd0868ffdee6e749a5666",
+      "sha256": "6fc39538e35a0b93f6710eec5846e74bc03232b88b5330f7e2c6018ab319bab9",
       "triangles": 12857,
       "meshes": 21,
       "engines": 4,
@@ -17334,151 +17334,151 @@
       ],
       "joints": [
         {
-          "pivot": "PIVOT_Turret_D05_side_n",
+          "pivot": "PIVOT_Turret_D05_W07",
           "parent": "fixed",
           "radius": 0.17555775583106092,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_side_n_lower",
-          "parent": "PIVOT_Turret_D05_side_n",
+          "pivot": "PIVOT_Barrel_D05_W07_B02",
+          "parent": "PIVOT_Turret_D05_W07",
           "radius": 0.14523332876349734,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_side_n_lower",
+          "pivot": "PIVOT_Barrel_D05_W07_B02",
           "parent": "fixed",
           "radius": 0.14523332876349734,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_side_n_upper",
-          "parent": "PIVOT_Turret_D05_side_n",
+          "pivot": "PIVOT_Barrel_D05_W07_B01",
+          "parent": "PIVOT_Turret_D05_W07",
           "radius": 0.14523332876350029,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_side_n_upper",
+          "pivot": "PIVOT_Barrel_D05_W07_B01",
           "parent": "fixed",
           "radius": 0.14523332876350029,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_D05_side_p",
+          "pivot": "PIVOT_Turret_D05_W06",
           "parent": "fixed",
           "radius": 0.17555775583106092,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_side_p_lower",
-          "parent": "PIVOT_Turret_D05_side_p",
+          "pivot": "PIVOT_Barrel_D05_W06_B02",
+          "parent": "PIVOT_Turret_D05_W06",
           "radius": 0.14523332876349748,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_side_p_lower",
+          "pivot": "PIVOT_Barrel_D05_W06_B02",
           "parent": "fixed",
           "radius": 0.14523332876349748,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_side_p_upper",
-          "parent": "PIVOT_Turret_D05_side_p",
+          "pivot": "PIVOT_Barrel_D05_W06_B01",
+          "parent": "PIVOT_Turret_D05_W06",
           "radius": 0.14523332876350029,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_side_p_upper",
+          "pivot": "PIVOT_Barrel_D05_W06_B01",
           "parent": "fixed",
           "radius": 0.14523332876350029,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_D05_aft_n",
+          "pivot": "PIVOT_Turret_D05_W09",
           "parent": "fixed",
           "radius": 0.23905959318451142,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_aft_n_outer",
-          "parent": "PIVOT_Turret_D05_aft_n",
+          "pivot": "PIVOT_Barrel_D05_W09_B02",
+          "parent": "PIVOT_Turret_D05_W09",
           "radius": 0.12931611469321985,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_aft_n_outer",
+          "pivot": "PIVOT_Barrel_D05_W09_B02",
           "parent": "fixed",
           "radius": 0.12931611469321985,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_aft_n_inner",
-          "parent": "PIVOT_Turret_D05_aft_n",
+          "pivot": "PIVOT_Barrel_D05_W09_B01",
+          "parent": "PIVOT_Turret_D05_W09",
           "radius": 0.12931625704035343,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_aft_n_inner",
+          "pivot": "PIVOT_Barrel_D05_W09_B01",
           "parent": "fixed",
           "radius": 0.12931625704035343,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_D05_aft_p",
+          "pivot": "PIVOT_Turret_D05_W08",
           "parent": "fixed",
           "radius": 0.20655811472734764,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_aft_p_inner",
-          "parent": "PIVOT_Turret_D05_aft_p",
+          "pivot": "PIVOT_Barrel_D05_W08_B02",
+          "parent": "PIVOT_Turret_D05_W08",
           "radius": 0.12931625704035343,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_aft_p_inner",
+          "pivot": "PIVOT_Barrel_D05_W08_B02",
           "parent": "fixed",
           "radius": 0.12931625704035343,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_aft_p_outer",
-          "parent": "PIVOT_Turret_D05_aft_p",
+          "pivot": "PIVOT_Barrel_D05_W08_B01",
+          "parent": "PIVOT_Turret_D05_W08",
           "radius": 0.12931611469321985,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_aft_p_outer",
+          "pivot": "PIVOT_Barrel_D05_W08_B01",
           "parent": "fixed",
           "radius": 0.12931611469321985,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_D05_fore",
+          "pivot": "PIVOT_Turret_D05_W05",
           "parent": "fixed",
           "radius": 0.23905952340301406,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_fore_n",
-          "parent": "PIVOT_Turret_D05_fore",
+          "pivot": "PIVOT_Barrel_D05_W05_B02",
+          "parent": "PIVOT_Turret_D05_W05",
           "radius": 0.12931639938749265,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_fore_n",
+          "pivot": "PIVOT_Barrel_D05_W05_B02",
           "parent": "fixed",
           "radius": 0.12931639938749265,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_fore_p",
-          "parent": "PIVOT_Turret_D05_fore",
+          "pivot": "PIVOT_Barrel_D05_W05_B01",
+          "parent": "PIVOT_Turret_D05_W05",
           "radius": 0.12931639938749265,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_D05_fore_p",
+          "pivot": "PIVOT_Barrel_D05_W05_B01",
           "parent": "fixed",
           "radius": 0.12931639938749265,
           "status": "candidate"
@@ -17496,7 +17496,7 @@
       },
       "weapons": [
         {
-          "key": "D05_side_n",
+          "key": "D05_W07",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -17515,14 +17515,14 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_D05_side_n_lower",
+              "muzzle": "FX_Muzzle_D05_W07_B02",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D05_hull_draft"
               }
             },
             {
-              "muzzle": "FX_Muzzle_D05_side_n_upper",
+              "muzzle": "FX_Muzzle_D05_W07_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D05_hull_draft"
@@ -18486,7 +18486,7 @@
           }
         },
         {
-          "key": "D05_side_p",
+          "key": "D05_W06",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -18505,14 +18505,14 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_D05_side_p_lower",
+              "muzzle": "FX_Muzzle_D05_W06_B02",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D05_hull_draft"
               }
             },
             {
-              "muzzle": "FX_Muzzle_D05_side_p_upper",
+              "muzzle": "FX_Muzzle_D05_W06_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "D05_hull_draft"
@@ -19476,7 +19476,7 @@
           }
         },
         {
-          "key": "D05_aft_n",
+          "key": "D05_W09",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -19495,11 +19495,11 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_D05_aft_n_outer",
+              "muzzle": "FX_Muzzle_D05_W09_B02",
               "blocked": null
             },
             {
-              "muzzle": "FX_Muzzle_D05_aft_n_inner",
+              "muzzle": "FX_Muzzle_D05_W09_B01",
               "blocked": null
             }
           ],
@@ -20109,7 +20109,7 @@
           }
         },
         {
-          "key": "D05_aft_p",
+          "key": "D05_W08",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -20128,11 +20128,11 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_D05_aft_p_inner",
+              "muzzle": "FX_Muzzle_D05_W08_B02",
               "blocked": null
             },
             {
-              "muzzle": "FX_Muzzle_D05_aft_p_outer",
+              "muzzle": "FX_Muzzle_D05_W08_B01",
               "blocked": null
             }
           ],
@@ -20742,7 +20742,7 @@
           }
         },
         {
-          "key": "D05_fore",
+          "key": "D05_W05",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -20761,11 +20761,11 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_D05_fore_n",
+              "muzzle": "FX_Muzzle_D05_W05_B02",
               "blocked": null
             },
             {
-              "muzzle": "FX_Muzzle_D05_fore_p",
+              "muzzle": "FX_Muzzle_D05_W05_B01",
               "blocked": null
             }
           ],
@@ -21375,7 +21375,7 @@
           }
         },
         {
-          "key": "Fixed_D05_Fixed_n_inner",
+          "key": "Fixed_D05_W02_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -21394,14 +21394,14 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_D05_Fixed_n_inner",
+              "muzzle": "FX_Muzzle_D05_W02_B01",
               "blocked": null
             }
           ],
           "samples": []
         },
         {
-          "key": "Fixed_D05_Fixed_p_outer",
+          "key": "Fixed_D05_W03_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -21420,14 +21420,14 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_D05_Fixed_p_outer",
+              "muzzle": "FX_Muzzle_D05_W03_B01",
               "blocked": null
             }
           ],
           "samples": []
         },
         {
-          "key": "Fixed_D05_Fixed_p_inner",
+          "key": "Fixed_D05_W01_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -21446,14 +21446,14 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_D05_Fixed_p_inner",
+              "muzzle": "FX_Muzzle_D05_W01_B01",
               "blocked": null
             }
           ],
           "samples": []
         },
         {
-          "key": "Fixed_D05_Fixed_n_outer",
+          "key": "Fixed_D05_W04_B01",
           "barrels": 0,
           "muzzles": 1,
           "settings": {
@@ -21472,18 +21472,18 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_D05_Fixed_n_outer",
+              "muzzle": "FX_Muzzle_D05_W04_B01",
               "blocked": null
             }
           ],
           "samples": []
         }
       ],
-      "elapsedMs": 634.07
+      "elapsedMs": 159.39
     },
     {
       "file": "Light_cruiser_01_rigged.fbx",
-      "sha256": "a92546881b3ca313143812a0f9f4c4d106fe20a4970c19605905340c0ea8a8bb",
+      "sha256": "67f5476437ffb212f1889dc7ba27210f79084d9320b9a3687917376c13b694f6",
       "triangles": 13497,
       "meshes": 13,
       "engines": 6,
@@ -21570,103 +21570,103 @@
       ],
       "joints": [
         {
-          "pivot": "PIVOT_Turret_Center",
+          "pivot": "PIVOT_Turret_LC01_W03",
           "parent": "fixed",
           "radius": 0.37444573043723295,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Center_L",
-          "parent": "PIVOT_Turret_Center",
+          "pivot": "PIVOT_Barrel_LC01_W03_B01",
+          "parent": "PIVOT_Turret_LC01_W03",
           "radius": 0.09593813220068541,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Center_L",
+          "pivot": "PIVOT_Barrel_LC01_W03_B01",
           "parent": "fixed",
           "radius": 0.09593813220068541,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Center_R",
-          "parent": "PIVOT_Turret_Center",
+          "pivot": "PIVOT_Barrel_LC01_W03_B02",
+          "parent": "PIVOT_Turret_LC01_W03",
           "radius": 0.09593813220068544,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Center_R",
+          "pivot": "PIVOT_Barrel_LC01_W03_B02",
           "parent": "fixed",
           "radius": 0.09593813220068544,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_Side_L",
+          "pivot": "PIVOT_Turret_LC01_W01",
           "parent": "fixed",
           "radius": 0.19109561605957512,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Side_L",
-          "parent": "PIVOT_Turret_Side_L",
+          "pivot": "PIVOT_Barrel_LC01_W01_B01",
+          "parent": "PIVOT_Turret_LC01_W01",
           "radius": 0.09593813220071847,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Side_L",
+          "pivot": "PIVOT_Barrel_LC01_W01_B01",
           "parent": "fixed",
           "radius": 0.09593813220071847,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_Side_R",
+          "pivot": "PIVOT_Turret_LC01_W02",
           "parent": "fixed",
           "radius": 0.19109561605957512,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Side_R",
-          "parent": "PIVOT_Turret_Side_R",
+          "pivot": "PIVOT_Barrel_LC01_W02_B01",
+          "parent": "PIVOT_Turret_LC01_W02",
           "radius": 0.09593813220071834,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Side_R",
+          "pivot": "PIVOT_Barrel_LC01_W02_B01",
           "parent": "fixed",
           "radius": 0.09593813220071834,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_Aft_R",
+          "pivot": "PIVOT_Turret_LC01_W05",
           "parent": "fixed",
           "radius": 0.19023103105154537,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Aft_R",
-          "parent": "PIVOT_Turret_Aft_R",
+          "pivot": "PIVOT_Barrel_LC01_W05_B01",
+          "parent": "PIVOT_Turret_LC01_W05",
           "radius": 0.09593806472209888,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Aft_R",
+          "pivot": "PIVOT_Barrel_LC01_W05_B01",
           "parent": "fixed",
           "radius": 0.09593806472209888,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_Aft_L",
+          "pivot": "PIVOT_Turret_LC01_W04",
           "parent": "fixed",
           "radius": 0.19023103105154537,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Aft_L",
-          "parent": "PIVOT_Turret_Aft_L",
+          "pivot": "PIVOT_Barrel_LC01_W04_B01",
+          "parent": "PIVOT_Turret_LC01_W04",
           "radius": 0.09593806472209888,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_Aft_L",
+          "pivot": "PIVOT_Barrel_LC01_W04_B01",
           "parent": "fixed",
           "radius": 0.09593806472209888,
           "status": "candidate"
@@ -21675,7 +21675,7 @@
       "neutralCollision": null,
       "weapons": [
         {
-          "key": "Center",
+          "key": "LC01_W03",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -21694,11 +21694,11 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Center_L",
+              "muzzle": "FX_Muzzle_LC01_W03_B01",
               "blocked": null
             },
             {
-              "muzzle": "FX_Muzzle_Center_R",
+              "muzzle": "FX_Muzzle_LC01_W03_B02",
               "blocked": null
             }
           ],
@@ -21939,7 +21939,7 @@
           }
         },
         {
-          "key": "Side_L",
+          "key": "LC01_W01",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -21958,7 +21958,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Side_L",
+              "muzzle": "FX_Muzzle_LC01_W01_B01",
               "blocked": null
             }
           ],
@@ -22217,7 +22217,7 @@
           }
         },
         {
-          "key": "Side_R",
+          "key": "LC01_W02",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -22236,7 +22236,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Side_R",
+              "muzzle": "FX_Muzzle_LC01_W02_B01",
               "blocked": null
             }
           ],
@@ -22495,7 +22495,7 @@
           }
         },
         {
-          "key": "Aft_R",
+          "key": "LC01_W05",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -22514,7 +22514,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Aft_R",
+              "muzzle": "FX_Muzzle_LC01_W05_B01",
               "blocked": null
             }
           ],
@@ -22773,7 +22773,7 @@
           }
         },
         {
-          "key": "Aft_L",
+          "key": "LC01_W04",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -22792,7 +22792,7 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_Aft_L",
+              "muzzle": "FX_Muzzle_LC01_W04_B01",
               "blocked": null
             }
           ],
@@ -23051,11 +23051,11 @@
           }
         }
       ],
-      "elapsedMs": 5755.02
+      "elapsedMs": 3171.3
     },
     {
       "file": "Light_cruiser_02_rigged.fbx",
-      "sha256": "b4b34c3933c9f0b5a0fe0685a86a7795964d72694f6e69ce84d5281b700750c0",
+      "sha256": "a1a8517006f7506c9b36e2167d9aceae53e8556e33492358216fcfc4c05bc784",
       "triangles": 22016,
       "meshes": 25,
       "engines": 4,
@@ -23214,151 +23214,151 @@
       ],
       "joints": [
         {
-          "pivot": "PIVOT_Turret_LC02_mid_n",
+          "pivot": "PIVOT_Turret_LC02_W03",
           "parent": "fixed",
           "radius": 0.3455086032062009,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_mid_n9_1",
-          "parent": "PIVOT_Turret_LC02_mid_n",
+          "pivot": "PIVOT_Barrel_LC02_W03_B02",
+          "parent": "PIVOT_Turret_LC02_W03",
           "radius": 0.1487969512220506,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_mid_n9_1",
+          "pivot": "PIVOT_Barrel_LC02_W03_B02",
           "parent": "fixed",
           "radius": 0.1487969512220506,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_mid_n5_1",
-          "parent": "PIVOT_Turret_LC02_mid_n",
+          "pivot": "PIVOT_Barrel_LC02_W03_B01",
+          "parent": "PIVOT_Turret_LC02_W03",
           "radius": 0.14879708620546886,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_mid_n5_1",
+          "pivot": "PIVOT_Barrel_LC02_W03_B01",
           "parent": "fixed",
           "radius": 0.14879708620546886,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_LC02_aft_p",
+          "pivot": "PIVOT_Turret_LC02_W04",
           "parent": "fixed",
           "radius": 0.21842611202980744,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_aft_p_1",
-          "parent": "PIVOT_Turret_LC02_aft_p",
+          "pivot": "PIVOT_Barrel_LC02_W04_B02",
+          "parent": "PIVOT_Turret_LC02_W04",
           "radius": 0.050998473433969696,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_aft_p_1",
+          "pivot": "PIVOT_Barrel_LC02_W04_B02",
           "parent": "fixed",
           "radius": 0.050998473433969696,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_aft_p_2",
-          "parent": "PIVOT_Turret_LC02_aft_p",
+          "pivot": "PIVOT_Barrel_LC02_W04_B01",
+          "parent": "PIVOT_Turret_LC02_W04",
           "radius": 0.05099843968811581,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_aft_p_2",
+          "pivot": "PIVOT_Barrel_LC02_W04_B01",
           "parent": "fixed",
           "radius": 0.05099843968811581,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_LC02_fore",
+          "pivot": "PIVOT_Turret_LC02_W01",
           "parent": "fixed",
           "radius": 0.3461745159175891,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_fore_2",
-          "parent": "PIVOT_Turret_LC02_fore",
+          "pivot": "PIVOT_Barrel_LC02_W01_B01",
+          "parent": "PIVOT_Turret_LC02_W01",
           "radius": 0.09600634674754813,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_fore_2",
+          "pivot": "PIVOT_Barrel_LC02_W01_B01",
           "parent": "fixed",
           "radius": 0.09600634674754813,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_fore_1",
-          "parent": "PIVOT_Turret_LC02_fore",
+          "pivot": "PIVOT_Barrel_LC02_W01_B02",
+          "parent": "PIVOT_Turret_LC02_W01",
           "radius": 0.09600371878915953,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_fore_1",
+          "pivot": "PIVOT_Barrel_LC02_W01_B02",
           "parent": "fixed",
           "radius": 0.09600371878915953,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_LC02_aft_n",
+          "pivot": "PIVOT_Turret_LC02_W05",
           "parent": "fixed",
           "radius": 0.2184261191667496,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_aft_n_1",
-          "parent": "PIVOT_Turret_LC02_aft_n",
+          "pivot": "PIVOT_Barrel_LC02_W05_B02",
+          "parent": "PIVOT_Turret_LC02_W05",
           "radius": 0.050998473433969696,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_aft_n_1",
+          "pivot": "PIVOT_Barrel_LC02_W05_B02",
           "parent": "fixed",
           "radius": 0.050998473433969696,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_aft_n_2",
-          "parent": "PIVOT_Turret_LC02_aft_n",
+          "pivot": "PIVOT_Barrel_LC02_W05_B01",
+          "parent": "PIVOT_Turret_LC02_W05",
           "radius": 0.05099843968811581,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_aft_n_2",
+          "pivot": "PIVOT_Barrel_LC02_W05_B01",
           "parent": "fixed",
           "radius": 0.05099843968811581,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_LC02_mid_p",
+          "pivot": "PIVOT_Turret_LC02_W02",
           "parent": "fixed",
           "radius": 0.3455086032062008,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_mid_p9_1",
-          "parent": "PIVOT_Turret_LC02_mid_p",
+          "pivot": "PIVOT_Barrel_LC02_W02_B01",
+          "parent": "PIVOT_Turret_LC02_W02",
           "radius": 0.1487969512220506,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_mid_p9_1",
+          "pivot": "PIVOT_Barrel_LC02_W02_B01",
           "parent": "fixed",
           "radius": 0.1487969512220506,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_mid_p5_1",
-          "parent": "PIVOT_Turret_LC02_mid_p",
+          "pivot": "PIVOT_Barrel_LC02_W02_B02",
+          "parent": "PIVOT_Turret_LC02_W02",
           "radius": 0.14879708620546886,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC02_mid_p5_1",
+          "pivot": "PIVOT_Barrel_LC02_W02_B02",
           "parent": "fixed",
           "radius": 0.14879708620546886,
           "status": "candidate"
@@ -23376,7 +23376,7 @@
       },
       "weapons": [
         {
-          "key": "LC02_mid_n",
+          "key": "LC02_W03",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -23395,11 +23395,11 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_LC02_mid_n9_1",
+              "muzzle": "FX_Muzzle_LC02_W03_B02",
               "blocked": null
             },
             {
-              "muzzle": "FX_Muzzle_LC02_mid_n5_1",
+              "muzzle": "FX_Muzzle_LC02_W03_B01",
               "blocked": null
             }
           ],
@@ -24108,7 +24108,7 @@
           }
         },
         {
-          "key": "LC02_aft_p",
+          "key": "LC02_W04",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -24127,14 +24127,14 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_LC02_aft_p_1",
+              "muzzle": "FX_Muzzle_LC02_W04_B02",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "LC02_hull_draft"
               }
             },
             {
-              "muzzle": "FX_Muzzle_LC02_aft_p_2",
+              "muzzle": "FX_Muzzle_LC02_W04_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "LC02_hull_draft"
@@ -25098,7 +25098,7 @@
           }
         },
         {
-          "key": "LC02_fore",
+          "key": "LC02_W01",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -25117,11 +25117,11 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_LC02_fore_2",
+              "muzzle": "FX_Muzzle_LC02_W01_B01",
               "blocked": null
             },
             {
-              "muzzle": "FX_Muzzle_LC02_fore_1",
+              "muzzle": "FX_Muzzle_LC02_W01_B02",
               "blocked": null
             }
           ],
@@ -25731,7 +25731,7 @@
           }
         },
         {
-          "key": "LC02_aft_n",
+          "key": "LC02_W05",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -25750,14 +25750,14 @@
           "inference": null,
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_LC02_aft_n_1",
+              "muzzle": "FX_Muzzle_LC02_W05_B02",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "LC02_hull_draft"
               }
             },
             {
-              "muzzle": "FX_Muzzle_LC02_aft_n_2",
+              "muzzle": "FX_Muzzle_LC02_W05_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "LC02_hull_draft"
@@ -26721,7 +26721,7 @@
           }
         },
         {
-          "key": "LC02_mid_p",
+          "key": "LC02_W02",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -26740,11 +26740,11 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_LC02_mid_p9_1",
+              "muzzle": "FX_Muzzle_LC02_W02_B01",
               "blocked": null
             },
             {
-              "muzzle": "FX_Muzzle_LC02_mid_p5_1",
+              "muzzle": "FX_Muzzle_LC02_W02_B02",
               "blocked": null
             }
           ],
@@ -27453,11 +27453,11 @@
           }
         }
       ],
-      "elapsedMs": 2134.92
+      "elapsedMs": 1142.1
     },
     {
       "file": "Light_cruiser_03_rigged.fbx",
-      "sha256": "d960c436016df38e58b048a05a65afd0bad822ef0faecd3c1f9ad748b5e747a0",
+      "sha256": "fd0283e1d1a74fbdcd321acb6210b8a6901031032baa6e06c341f77ce5aae895",
       "triangles": 12342,
       "meshes": 20,
       "engines": 1,
@@ -27586,109 +27586,109 @@
       ],
       "joints": [
         {
-          "pivot": "PIVOT_Turret_LC03_under",
+          "pivot": "PIVOT_Turret_LC03_W02",
           "parent": "fixed",
           "radius": 0.210036129715389,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC03_under_1",
-          "parent": "PIVOT_Turret_LC03_under",
+          "pivot": "PIVOT_Barrel_LC03_W02_B01",
+          "parent": "PIVOT_Turret_LC03_W02",
           "radius": 0.07192925422793067,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC03_under_1",
+          "pivot": "PIVOT_Barrel_LC03_W02_B01",
           "parent": "fixed",
           "radius": 0.07192925422793067,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_LC03_mid_n",
+          "pivot": "PIVOT_Turret_LC03_W04",
           "parent": "fixed",
           "radius": 0.1916822755004694,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC03_mid_n_in",
-          "parent": "PIVOT_Turret_LC03_mid_n",
+          "pivot": "PIVOT_Barrel_LC03_W04_B01",
+          "parent": "PIVOT_Turret_LC03_W04",
           "radius": 0.07192926477833401,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC03_mid_n_in",
+          "pivot": "PIVOT_Barrel_LC03_W04_B01",
           "parent": "fixed",
           "radius": 0.07192926477833401,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC03_mid_n_out",
-          "parent": "PIVOT_Turret_LC03_mid_n",
+          "pivot": "PIVOT_Barrel_LC03_W04_B02",
+          "parent": "PIVOT_Turret_LC03_W04",
           "radius": 0.0719292647783306,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC03_mid_n_out",
+          "pivot": "PIVOT_Barrel_LC03_W04_B02",
           "parent": "fixed",
           "radius": 0.0719292647783306,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_LC03_mid_p",
+          "pivot": "PIVOT_Turret_LC03_W03",
           "parent": "fixed",
           "radius": 0.1916822355021363,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC03_mid_p_in",
-          "parent": "PIVOT_Turret_LC03_mid_p",
+          "pivot": "PIVOT_Barrel_LC03_W03_B02",
+          "parent": "PIVOT_Turret_LC03_W03",
           "radius": 0.07192926477833012,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC03_mid_p_in",
+          "pivot": "PIVOT_Barrel_LC03_W03_B02",
           "parent": "fixed",
           "radius": 0.07192926477833012,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC03_mid_p_out",
-          "parent": "PIVOT_Turret_LC03_mid_p",
+          "pivot": "PIVOT_Barrel_LC03_W03_B01",
+          "parent": "PIVOT_Turret_LC03_W03",
           "radius": 0.07192926477833401,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC03_mid_p_out",
+          "pivot": "PIVOT_Barrel_LC03_W03_B01",
           "parent": "fixed",
           "radius": 0.07192926477833401,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_LC03_fore",
+          "pivot": "PIVOT_Turret_LC03_W01",
           "parent": "fixed",
           "radius": 0.37759266935266433,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC03_fore_n",
-          "parent": "PIVOT_Turret_LC03_fore",
+          "pivot": "PIVOT_Barrel_LC03_W01_B02",
+          "parent": "PIVOT_Turret_LC03_W01",
           "radius": 0.15541546825656982,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC03_fore_n",
+          "pivot": "PIVOT_Barrel_LC03_W01_B02",
           "parent": "fixed",
           "radius": 0.15541546825656982,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC03_fore_p",
-          "parent": "PIVOT_Turret_LC03_fore",
+          "pivot": "PIVOT_Barrel_LC03_W01_B01",
+          "parent": "PIVOT_Turret_LC03_W01",
           "radius": 0.15687895275847455,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC03_fore_p",
+          "pivot": "PIVOT_Barrel_LC03_W01_B01",
           "parent": "fixed",
           "radius": 0.15687895275847455,
           "status": "candidate"
@@ -27706,7 +27706,7 @@
       },
       "weapons": [
         {
-          "key": "LC03_under",
+          "key": "LC03_W02",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -27725,7 +27725,7 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_LC03_under_1",
+              "muzzle": "FX_Muzzle_LC03_W02_B01",
               "blocked": null
             }
           ],
@@ -28335,7 +28335,7 @@
           }
         },
         {
-          "key": "LC03_mid_n",
+          "key": "LC03_W04",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -28354,11 +28354,11 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_LC03_mid_n_in",
+              "muzzle": "FX_Muzzle_LC03_W04_B01",
               "blocked": null
             },
             {
-              "muzzle": "FX_Muzzle_LC03_mid_n_out",
+              "muzzle": "FX_Muzzle_LC03_W04_B02",
               "blocked": null
             }
           ],
@@ -28968,7 +28968,7 @@
           }
         },
         {
-          "key": "LC03_mid_p",
+          "key": "LC03_W03",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -28987,11 +28987,11 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_LC03_mid_p_in",
+              "muzzle": "FX_Muzzle_LC03_W03_B02",
               "blocked": null
             },
             {
-              "muzzle": "FX_Muzzle_LC03_mid_p_out",
+              "muzzle": "FX_Muzzle_LC03_W03_B01",
               "blocked": null
             }
           ],
@@ -29601,7 +29601,7 @@
           }
         },
         {
-          "key": "LC03_fore",
+          "key": "LC03_W01",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -29620,11 +29620,11 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_LC03_fore_n",
+              "muzzle": "FX_Muzzle_LC03_W01_B02",
               "blocked": null
             },
             {
-              "muzzle": "FX_Muzzle_LC03_fore_p",
+              "muzzle": "FX_Muzzle_LC03_W01_B01",
               "blocked": null
             }
           ],
@@ -30234,11 +30234,11 @@
           }
         }
       ],
-      "elapsedMs": 2118.47
+      "elapsedMs": 1244.49
     },
     {
       "file": "Light_cruiser_04_rigged.fbx",
-      "sha256": "2e78104a6a1ee10b153786280f7677290ce1d58a5e03c2aa04e37fbaf5c04d3d",
+      "sha256": "650849b473f2bbb9f3a02b87ca76fa9be5618490258eaddf1f350a911dffa57d",
       "triangles": 13822,
       "meshes": 22,
       "engines": 5,
@@ -30379,133 +30379,133 @@
       ],
       "joints": [
         {
-          "pivot": "PIVOT_Turret_LC04_aft_neg",
+          "pivot": "PIVOT_Turret_LC04_W05",
           "parent": "fixed",
           "radius": 0.3771360165961992,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC04_aft_neg_1",
-          "parent": "PIVOT_Turret_LC04_aft_neg",
+          "pivot": "PIVOT_Barrel_LC04_W05_B02",
+          "parent": "PIVOT_Turret_LC04_W05",
           "radius": 0.35254282893330297,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC04_aft_neg_1",
+          "pivot": "PIVOT_Barrel_LC04_W05_B02",
           "parent": "fixed",
           "radius": 0.35254282893330297,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC04_aft_neg_2",
-          "parent": "PIVOT_Turret_LC04_aft_neg",
+          "pivot": "PIVOT_Barrel_LC04_W05_B01",
+          "parent": "PIVOT_Turret_LC04_W05",
           "radius": 0.35254282893330297,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC04_aft_neg_2",
+          "pivot": "PIVOT_Barrel_LC04_W05_B01",
           "parent": "fixed",
           "radius": 0.35254282893330297,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_LC04_fore",
+          "pivot": "PIVOT_Turret_LC04_W03",
           "parent": "fixed",
           "radius": 0.4558420457071668,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC04_fore_2",
-          "parent": "PIVOT_Turret_LC04_fore",
+          "pivot": "PIVOT_Barrel_LC04_W03_B02",
+          "parent": "PIVOT_Turret_LC04_W03",
           "radius": 0.11948278843656421,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC04_fore_2",
+          "pivot": "PIVOT_Barrel_LC04_W03_B02",
           "parent": "fixed",
           "radius": 0.11948278843656421,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC04_fore_3",
-          "parent": "PIVOT_Turret_LC04_fore",
+          "pivot": "PIVOT_Barrel_LC04_W03_B01",
+          "parent": "PIVOT_Turret_LC04_W03",
           "radius": 0.11948279936825497,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC04_fore_3",
+          "pivot": "PIVOT_Barrel_LC04_W03_B01",
           "parent": "fixed",
           "radius": 0.11948279936825497,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC04_fore_1",
-          "parent": "PIVOT_Turret_LC04_fore",
+          "pivot": "PIVOT_Barrel_LC04_W03_B03",
+          "parent": "PIVOT_Turret_LC04_W03",
           "radius": 0.11948279936825495,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC04_fore_1",
+          "pivot": "PIVOT_Barrel_LC04_W03_B03",
           "parent": "fixed",
           "radius": 0.11948279936825495,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC04_under_pos_1",
-          "parent": "PIVOT_Turret_LC04_under_pos",
+          "pivot": "PIVOT_Barrel_LC04_W01_B01",
+          "parent": "PIVOT_Turret_LC04_W01",
           "radius": 0.3974201497979093,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC04_under_pos_1",
+          "pivot": "PIVOT_Barrel_LC04_W01_B01",
           "parent": "fixed",
           "radius": 0.3974201497979093,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_LC04_aft_pos",
+          "pivot": "PIVOT_Turret_LC04_W04",
           "parent": "fixed",
           "radius": 0.3771360165961992,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC04_aft_pos_1",
-          "parent": "PIVOT_Turret_LC04_aft_pos",
+          "pivot": "PIVOT_Barrel_LC04_W04_B01",
+          "parent": "PIVOT_Turret_LC04_W04",
           "radius": 0.352543003840355,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC04_aft_pos_1",
+          "pivot": "PIVOT_Barrel_LC04_W04_B01",
           "parent": "fixed",
           "radius": 0.352543003840355,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC04_aft_pos_2",
-          "parent": "PIVOT_Turret_LC04_aft_pos",
+          "pivot": "PIVOT_Barrel_LC04_W04_B02",
+          "parent": "PIVOT_Turret_LC04_W04",
           "radius": 0.35254282893330297,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC04_aft_pos_2",
+          "pivot": "PIVOT_Barrel_LC04_W04_B02",
           "parent": "fixed",
           "radius": 0.35254282893330297,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_LC04_under_neg",
+          "pivot": "PIVOT_Turret_LC04_W02",
           "parent": "fixed",
           "radius": 0.19014461648973502,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC04_under_neg_1",
-          "parent": "PIVOT_Turret_LC04_under_neg",
+          "pivot": "PIVOT_Barrel_LC04_W02_B01",
+          "parent": "PIVOT_Turret_LC04_W02",
           "radius": 0.09444723425558238,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC04_under_neg_1",
+          "pivot": "PIVOT_Barrel_LC04_W02_B01",
           "parent": "fixed",
           "radius": 0.09444723425558238,
           "status": "candidate"
@@ -30523,7 +30523,7 @@
       },
       "weapons": [
         {
-          "key": "LC04_aft_neg",
+          "key": "LC04_W05",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -30542,11 +30542,11 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_LC04_aft_neg_1",
+              "muzzle": "FX_Muzzle_LC04_W05_B02",
               "blocked": null
             },
             {
-              "muzzle": "FX_Muzzle_LC04_aft_neg_2",
+              "muzzle": "FX_Muzzle_LC04_W05_B01",
               "blocked": null
             }
           ],
@@ -31174,7 +31174,7 @@
           }
         },
         {
-          "key": "LC04_fore",
+          "key": "LC04_W03",
           "barrels": 3,
           "muzzles": 3,
           "settings": {
@@ -31193,15 +31193,15 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_LC04_fore_2",
+              "muzzle": "FX_Muzzle_LC04_W03_B02",
               "blocked": null
             },
             {
-              "muzzle": "FX_Muzzle_LC04_fore_3",
+              "muzzle": "FX_Muzzle_LC04_W03_B01",
               "blocked": null
             },
             {
-              "muzzle": "FX_Muzzle_LC04_fore_1",
+              "muzzle": "FX_Muzzle_LC04_W03_B03",
               "blocked": null
             }
           ],
@@ -31811,7 +31811,7 @@
           }
         },
         {
-          "key": "LC04_under_pos",
+          "key": "LC04_W01",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -31830,7 +31830,7 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_LC04_under_pos_1",
+              "muzzle": "FX_Muzzle_LC04_W01_B01",
               "blocked": null
             }
           ],
@@ -32494,7 +32494,7 @@
           }
         },
         {
-          "key": "LC04_aft_pos",
+          "key": "LC04_W04",
           "barrels": 2,
           "muzzles": 2,
           "settings": {
@@ -32513,11 +32513,11 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_LC04_aft_pos_1",
+              "muzzle": "FX_Muzzle_LC04_W04_B01",
               "blocked": null
             },
             {
-              "muzzle": "FX_Muzzle_LC04_aft_pos_2",
+              "muzzle": "FX_Muzzle_LC04_W04_B02",
               "blocked": null
             }
           ],
@@ -33145,7 +33145,7 @@
           }
         },
         {
-          "key": "LC04_under_neg",
+          "key": "LC04_W02",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -33164,7 +33164,7 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_LC04_under_neg_1",
+              "muzzle": "FX_Muzzle_LC04_W02_B01",
               "blocked": null
             }
           ],
@@ -34125,11 +34125,11 @@
           }
         }
       ],
-      "elapsedMs": 1535.52
+      "elapsedMs": 568.87
     },
     {
       "file": "Light_cruiser_05_rigged.fbx",
-      "sha256": "61abd1b92aa80c2401c8123f2e9a0ce2fec7b893a08ff425ca739162a9247310",
+      "sha256": "eae2cbd7562c5a1c9027f156035e1817416aa480c0b71d06a3baf5b9ec4d8625",
       "triangles": 25735,
       "meshes": 12,
       "engines": 6,
@@ -34210,73 +34210,73 @@
       ],
       "joints": [
         {
-          "pivot": "PIVOT_Turret_LC05_center",
+          "pivot": "PIVOT_Turret_LC05_W03",
           "parent": "fixed",
           "radius": 0.4658771403528904,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC05_center_1",
-          "parent": "PIVOT_Turret_LC05_center",
+          "pivot": "PIVOT_Barrel_LC05_W03_B01",
+          "parent": "PIVOT_Turret_LC05_W03",
           "radius": 0.2312930812007121,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC05_center_1",
+          "pivot": "PIVOT_Barrel_LC05_W03_B01",
           "parent": "fixed",
           "radius": 0.2312930812007121,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_LC05_fore_n",
+          "pivot": "PIVOT_Turret_LC05_W02",
           "parent": "fixed",
           "radius": 0.2579515121434983,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC05_fore_n_1",
-          "parent": "PIVOT_Turret_LC05_fore_n",
+          "pivot": "PIVOT_Barrel_LC05_W02_B01",
+          "parent": "PIVOT_Turret_LC05_W02",
           "radius": 0.15098349356069588,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC05_fore_n_1",
+          "pivot": "PIVOT_Barrel_LC05_W02_B01",
           "parent": "fixed",
           "radius": 0.15098349356069588,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_LC05_under",
+          "pivot": "PIVOT_Turret_LC05_W04",
           "parent": "fixed",
           "radius": 0.2332325424235412,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC05_under_1",
-          "parent": "PIVOT_Turret_LC05_under",
+          "pivot": "PIVOT_Barrel_LC05_W04_B01",
+          "parent": "PIVOT_Turret_LC05_W04",
           "radius": 0.06656932754666607,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC05_under_1",
+          "pivot": "PIVOT_Barrel_LC05_W04_B01",
           "parent": "fixed",
           "radius": 0.06656932754666607,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Turret_LC05_fore_p",
+          "pivot": "PIVOT_Turret_LC05_W01",
           "parent": "fixed",
           "radius": 0.2579515121434983,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC05_fore_p_1",
-          "parent": "PIVOT_Turret_LC05_fore_p",
+          "pivot": "PIVOT_Barrel_LC05_W01_B01",
+          "parent": "PIVOT_Turret_LC05_W01",
           "radius": 0.15098349356069588,
           "status": "candidate"
         },
         {
-          "pivot": "PIVOT_Barrel_LC05_fore_p_1",
+          "pivot": "PIVOT_Barrel_LC05_W01_B01",
           "parent": "fixed",
           "radius": 0.15098349356069588,
           "status": "candidate"
@@ -34294,7 +34294,7 @@
       },
       "weapons": [
         {
-          "key": "LC05_center",
+          "key": "LC05_W03",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -34313,7 +34313,7 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_LC05_center_1",
+              "muzzle": "FX_Muzzle_LC05_W03_B01",
               "blocked": null
             }
           ],
@@ -34959,7 +34959,7 @@
           }
         },
         {
-          "key": "LC05_fore_n",
+          "key": "LC05_W02",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -34978,7 +34978,7 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_LC05_fore_n_1",
+              "muzzle": "FX_Muzzle_LC05_W02_B01",
               "blocked": null
             }
           ],
@@ -35588,7 +35588,7 @@
           }
         },
         {
-          "key": "LC05_under",
+          "key": "LC05_W04",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -35607,7 +35607,7 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_LC05_under_1",
+              "muzzle": "FX_Muzzle_LC05_W04_B01",
               "blocked": {
                 "type": "muzzle-exit",
                 "part": "LC05_hull_draft"
@@ -36220,7 +36220,7 @@
           }
         },
         {
-          "key": "LC05_fore_p",
+          "key": "LC05_W01",
           "barrels": 1,
           "muzzles": 1,
           "settings": {
@@ -36239,7 +36239,7 @@
           "inference": "outward sign inferred from mount position and a 1 degree probe; review required",
           "neutralFire": [
             {
-              "muzzle": "FX_Muzzle_LC05_fore_p_1",
+              "muzzle": "FX_Muzzle_LC05_W01_B01",
               "blocked": null
             }
           ],
@@ -36849,7 +36849,7 @@
           }
         }
       ],
-      "elapsedMs": 1278.73
+      "elapsedMs": 495.21
     }
   ]
 }

@@ -1,0 +1,7 @@
+﻿schema_version,generation_id,rule_id,value,description
+1,DRAFT_20261124_01,score_interval_sec,1,득점 주기 (초)
+1,DRAFT_20261124_01,score_base,1,우위 1척당 기본 점수
+1,DRAFT_20261124_01,score_advantage_cap,3,득점에 반영되는 최대 우위 함선 수
+1,DRAFT_20261124_01,side_zone_multiplier,1,일반 구역 배율
+1,DRAFT_20261124_01,center_zone_multiplier,2,중앙 구역 배율
+1,DRAFT_20261124_01,victory_score,1000,현재 보유 승리 점수
