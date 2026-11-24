@@ -19,11 +19,23 @@ export function worldToNearestGrid(position,grid=COMMAND_GRID){
   gridToWorld(point,grid);return point;
 }
 export function insideBattlefield(p,bounds=BATTLEFIELD){return !!p && axes.every(a=>Number.isFinite(p[a]) && Number.isFinite(bounds.min[a]) && Number.isFinite(bounds.max[a]) && bounds.min[a]<=bounds.max[a] && p[a]>=bounds.min[a] && p[a]<=bounds.max[a]);}
-export function setDestination(f,point){const world=gridToWorld(point);if(!insideBattlefield(world))throw new Error('전장 경계 밖의 목표는 지정할 수 없습니다.');f.destinationIndex={...point};f.destination.copy(world);f.arrived=false;}
+export const PATROL_MAX_POINTS=32;
+export const ENCOUNTER_CONFIG=Object.freeze({enter:38,exit:48,grace:2,minRange:24,maxRange:32,scanTicks:12});
+export function setCombatPolicy(f,policy){if(!['OPPORTUNISTIC_FIRE','STANDOFF','POINT_DEFENSE'].includes(policy))throw Error('교전 대응이 올바르지 않습니다.');if(f.tactics.policy!==policy){f.tactics.policy=policy;f.tactics.revision++;}}
+export function setDefenseAnchor(f,point){if(point!==null)validPoint(point);const next=point?copyPoint(point):null;if(JSON.stringify(f.tactics.defenseAnchor)!==JSON.stringify(next)){f.tactics.defenseAnchor=next;f.tactics.anchorRevision++;}}
+const copyPoint=p=>({ix:p.ix,iy:p.iy,iz:p.iz});
+const pointKey=p=>p.ix+','+p.iy+','+p.iz;
+function validPoint(point){const world=gridToWorld(point);if(!insideBattlefield(world))throw new Error('전장 경계 밖의 목표는 지정할 수 없습니다.');return world;}
+function refreshMovementTarget(f){const order=f.movement,point=order.policy==='PATROL'?order.patrolPoints[order.activeIndex]:order.movePoint;if(!point)throw Error('이동 목표가 없습니다.');f.destinationIndex=copyPoint(point);f.destination.copy(validPoint(point));}
+export function setDestination(f,point){validPoint(point);f.movement.movePoint=copyPoint(point);if(f.movement.policy==='MOVE'){refreshMovementTarget(f);f.arrived=false;}}
+export function setMovementPolicy(f,policy){if(!['MOVE','PATROL'].includes(policy))throw Error('이동 명령이 올바르지 않습니다.');if(policy==='PATROL'&&new Set(f.movement.patrolPoints.map(pointKey)).size<2)throw Error('서로 다른 경유점 두 개 이상이 필요합니다.');if(f.movement.policy===policy)return;f.movement.policy=policy;refreshMovementTarget(f);f.arrived=false;}
+export function setPatrolRoute(f,points){if(!Array.isArray(points)||points.length<2||points.length>PATROL_MAX_POINTS)throw Error('경유점은 2개 이상 32개 이하이어야 합니다.');const copy=points.map(p=>{validPoint(p);return copyPoint(p)});if(new Set(copy.map(pointKey)).size<2)throw Error('서로 다른 경유점 두 개 이상이 필요합니다.');const order=f.movement;if(JSON.stringify(order.patrolPoints)===JSON.stringify(copy))return false;order.patrolPoints=copy;order.revision++;order.activeIndex=0;if(order.policy==='PATROL'){refreshMovementTarget(f);f.arrived=false;}return true;}
+function advancePatrol(f){const order=f.movement;if(order.policy!=='PATROL')return;const points=order.patrolPoints;if(points.length<2)return;let checked=0;while(checked<points.length&&f.anchor.distanceTo(f.destination)<=CONFIG.arrivalDistance&&f.velocity.length()<=CONFIG.arrivalSpeed){order.activeIndex=(order.activeIndex+1)%points.length;refreshMovementTarget(f);checked++;}if(checked)f.arrived=false;}
+
 const ship=(id,fleetId)=>({id,fleetId,position:vec(),velocity:vec(),rotation:new THREE.Quaternion(),hp:100,maxHp:100,alive:true,weapons:[]});
 function fleet(id,team,anchor,destination,count){
   const ships=Array.from({length:count},(_,i)=>ship(`${id}-${i+1}`,id));
-  const f={id,team,anchor:anchor.clone(),velocity:vec(),rotation:new THREE.Quaternion(),destination:vec(),destinationIndex:null,size:vec(8,8,8),spacingLevels:{x:'normal',y:'normal',z:'normal'},ships,arrived:false,lastHorizontal:vec(0,0,1),posture:'MOVING'};
+  const f={id,team,anchor:anchor.clone(),velocity:vec(),rotation:new THREE.Quaternion(),destination:vec(),destinationIndex:null,movement:{policy:'MOVE',movePoint:null,patrolPoints:[],revision:0,activeIndex:0},tactics:{policy:'OPPORTUNISTIC_FIRE',revision:0,defenseAnchor:null,anchorRevision:0},encounter:{active:false,enemyId:null,policy:null,revision:0,anchorRevision:0,outside:0,defensePoint:null,defenseSource:null,arrived:false,mode:'HOLD'},size:vec(8,8,8),spacingLevels:{x:'normal',y:'normal',z:'normal'},ships,arrived:false,lastHorizontal:vec(0,0,1),posture:'MOVING'};
   setDestination(f,worldToNearestGrid(destination));return f;
 }
 export function dimensions(n){
@@ -48,6 +60,11 @@ export function sizeForSpacing(n,levels){
 }
 export function validateSize(n,size){const counts=dimensions(n);return axes.every((axis,i)=>Number.isFinite(size[axis])&&size[axis]>=0&&(counts[i]<=1||size[axis]/(counts[i]-1)>=CONFIG.spacing));}
 export function slots(f){
+  if(f.encounter.active){const n=f.ships.length;if(!n)return [];const offsets=[];if(f.encounter.policy==='STANDOFF'){const columns=Math.ceil(Math.sqrt(n)),rows=Math.ceil(n/columns),spacing=SPACING_LEVELS[f.spacingLevels.x];for(let i=0;i<n;i++)offsets.push(vec((i%columns-(columns-1)/2)*spacing,(Math.floor(i/columns)-(rows-1)/2)*spacing,0));}
+    else if(n===1)offsets.push(vec());else {const spacing=Math.max(...Object.values(f.spacingLevels).map(x=>SPACING_LEVELS[x])),radius=Math.max(spacing,spacing*Math.sqrt(n)/2),golden=Math.PI*(3-Math.sqrt(5));for(let i=0;i<n;i++){const y=1-2*(i+.5)/n,r=Math.sqrt(1-y*y),a=i*golden;offsets.push(vec(Math.cos(a)*r,y,Math.sin(a)*r).multiplyScalar(radius));}}
+    const points=offsets.map(p=>p.applyQuaternion(f.rotation).add(f.anchor)),bounds=new THREE.Box3().setFromPoints(points),shift=vec();
+    for(const axis of axes){const width=bounds.max[axis]-bounds.min[axis],available=BATTLEFIELD.max[axis]-BATTLEFIELD.min[axis];if(width<=available){if(bounds.min[axis]<BATTLEFIELD.min[axis])shift[axis]=BATTLEFIELD.min[axis]-bounds.min[axis];else if(bounds.max[axis]>BATTLEFIELD.max[axis])shift[axis]=BATTLEFIELD.max[axis]-bounds.max[axis];}}
+    return points.map(p=>p.add(shift).clamp(vec(BATTLEFIELD.min.x,BATTLEFIELD.min.y,BATTLEFIELD.min.z),vec(BATTLEFIELD.max.x,BATTLEFIELD.max.y,BATTLEFIELD.max.z)));}
   const key=[f.ships.length,f.size.x,f.size.y,f.size.z].join('|');
   if(f.slotTemplateKey!==key){f.slotTemplate=grid(f.ships.length,f.size);f.slotTemplateKey=key;}
   return f.slotTemplate.map(p=>p.clone().applyQuaternion(f.rotation).add(f.anchor));
@@ -131,14 +148,17 @@ function updateOrientation(f,direction,dt){
   f.rotation.rotateTowards(facing(forward,up.normalize()),CONFIG.turnRate*dt);
 }
 function moveAnchor(f,dt){
-  const delta=f.destination.clone().sub(f.anchor),dist=delta.length(),speed=f.velocity.length();
-  if(dist<=CONFIG.arrivalDistance && speed<=CONFIG.arrivalSpeed){f.velocity.set(0,0,0);f.arrived=true;f.posture='IDLE';const q=facing(f.lastHorizontal.clone(),vec(0,1,0));f.rotation.rotateTowards(q,CONFIG.turnRate*dt);return;}
-  f.arrived=false;f.posture='MOVING';if(dist>1e-8)updateOrientation(f,delta,dt);
+  const active=f.encounter.active;if(!active)advancePatrol(f);
+  const target=active?f.encounter.target:f.destination;
+  const delta=target.clone().sub(f.anchor),dist=delta.length(),speed=f.velocity.length();
+  if(active){f.posture='ENGAGING';f.arrived=false;if(f.encounter.face)updateOrientation(f,f.encounter.face,dt);if(dist<=CONFIG.arrivalDistance&&speed<=CONFIG.arrivalSpeed){f.velocity.set(0,0,0);return;}}
+  if(!active&&dist<=CONFIG.arrivalDistance && speed<=CONFIG.arrivalSpeed){f.velocity.set(0,0,0);if(f.movement.policy==='PATROL'){f.arrived=false;f.posture='MOVING';return;}f.arrived=true;f.posture='IDLE';const q=facing(f.lastHorizontal.clone(),vec(0,1,0));f.rotation.rotateTowards(q,CONFIG.turnRate*dt);return;}
+  f.arrived=false;if(!active){f.posture='MOVING';if(dist>1e-8)updateOrientation(f,delta,dt);}
   const desired=dist>1e-8?delta.clone().multiplyScalar(Math.min(CONFIG.anchorSpeed,Math.sqrt(2*CONFIG.anchorAcceleration*dist))/dist):vec();
   f.velocity.add(desired.sub(f.velocity).clampLength(0,CONFIG.anchorAcceleration*dt));
   const travel=f.velocity.clone().multiplyScalar(dt);
   // Clamp only the final segment when it reaches the target; velocity still decelerates.
-  if(dist>1e-8 && travel.dot(delta)>0 && travel.length()>=dist && travel.clone().cross(delta).length()<1e-7){f.anchor.copy(f.destination);f.velocity.set(0,0,0);}else f.anchor.add(travel);
+  if(dist>1e-8 && travel.dot(delta)>0 && travel.length()>=dist && travel.clone().cross(delta).length()<1e-7){f.anchor.copy(target);f.velocity.set(0,0,0);}else f.anchor.add(travel);
   f.anchor.clamp(vec(BATTLEFIELD.min.x,BATTLEFIELD.min.y,BATTLEFIELD.min.z),vec(BATTLEFIELD.max.x,BATTLEFIELD.max.y,BATTLEFIELD.max.z));
 }
 // Capture immutable local transforms once; candidate aim evaluation never changes scene nodes.
@@ -161,6 +181,14 @@ export function muzzlePoseFromData(chain,weapon,shipPosition,shipRotation,yaw=we
   const position=new THREE.Vector3(),rotation=new THREE.Quaternion(),scale=new THREE.Vector3();matrix.decompose(position,rotation,scale);
   return {position,direction:new THREE.Vector3(0,0,1).applyQuaternion(rotation).normalize()};
 }
+// Data-only target scoring; reserved damage is a per-fleet planning estimate, never HP mutation.
+export function chooseCombatTarget(candidates,previousId,reservedDamage,shotDamage,range=45){
+  let best=null,bestScore=Infinity;for(const item of candidates){const enemy=item.enemy;if(!enemy?.alive||!Number.isFinite(enemy.hp)||enemy.hp<=0||!Number.isFinite(item.distance))continue;
+    const reserved=reservedDamage.get(enemy.id)||0,overkill=Math.max(0,(reserved+shotDamage-enemy.hp)/enemy.hp);
+    const score=item.distance/(range*range)+overkill*.6-(enemy.id===previousId?.08:0);
+    if(score<bestScore-1e-9||(Math.abs(score-bestScore)<=1e-9&&(!best||enemy.id.localeCompare(best.id)<0))){best=enemy;bestScore=score;}
+  }return best;
+}
 // Spatial cells are independent of both the command grid and scoring zones.
 // Register the entire collision bound, including cells at negative coordinates.
 export class ShipSpatialIndex {
@@ -177,10 +205,30 @@ export class ShipSpatialIndex {
   near(p,distance){return this.query({x:p.x-distance,y:p.y-distance,z:p.z-distance},{x:p.x+distance,y:p.y+distance,z:p.z+distance});}
   segment(start,end,radius){return this.query({x:Math.min(start.x,end.x)-radius,y:Math.min(start.y,end.y)-radius,z:Math.min(start.z,end.z)-radius},{x:Math.max(start.x,end.x)+radius,y:Math.max(start.y,end.y)+radius,z:Math.max(start.z,end.z)+radius});}
 }
+function fleetBounds(f){const alive=f.ships.filter(s=>s.alive);if(!alive.length)return null;const box=new THREE.Box3().setFromPoints(alive.map(s=>s.position)),center=box.getCenter(vec());let radius=0;for(const s of alive)radius=Math.max(radius,center.distanceTo(s.position)+(s.collisionRadius??1.1));return {center,radius,box};}
+function updateEncounters(state,dt){
+  if(state.fleets.every(f=>!f.encounter.active&&f.tactics.policy==='OPPORTUNISTIC_FIRE'))return;
+  const bounds=new Map(state.fleets.map(f=>[f.id,fleetBounds(f)])),byId=new Map(state.fleets.map(f=>[f.id,f]));
+  const scan=Math.round(state.time/CONFIG.dt)%ENCOUNTER_CONFIG.scanTicks===0;
+  const fleetIndex=scan&&state.fleets.some(f=>!f.encounter.active&&f.tactics.policy!=='OPPORTUNISTIC_FIRE')?new ShipSpatialIndex(state.fleets.filter(f=>bounds.get(f.id)).map(f=>({id:f.id,position:bounds.get(f.id).center,collisionRadius:bounds.get(f.id).radius}))):null;
+  const distance=(a,b)=>Math.max(0,a.center.distanceTo(b.center)-a.radius-b.radius);
+  for(const f of state.fleets){const e=f.encounter,own=bounds.get(f.id);if(!own){e.active=false;continue;}
+    if(e.active&&e.revision!==f.tactics.revision){e.active=false;e.enemyId=null;continue;}
+    if(!e.active){if(f.tactics.policy==='OPPORTUNISTIC_FIRE'||!fleetIndex)continue;
+      const box=own.box.clone().expandByScalar(ENCOUNTER_CONFIG.enter+own.radius),ids=new Set(fleetIndex.query(box.min,box.max).map(item=>item.id));let choices=[...ids].map(id=>byId.get(id)).filter(other=>other&&other.team!==f.team&&bounds.get(other.id)).map(other=>({other,d:distance(own,bounds.get(other.id))})).filter(x=>x.d<=ENCOUNTER_CONFIG.enter).sort((a,b)=>a.d-b.d||a.other.id.localeCompare(b.other.id));if(!choices.length)continue;
+      e.active=true;e.enemyId=choices[0].other.id;e.policy=f.tactics.policy;e.revision=f.tactics.revision;e.anchorRevision=f.tactics.anchorRevision;e.outside=0;e.arrived=false;e.mode='HOLD';if(e.policy==='POINT_DEFENSE'){const point=f.tactics.defenseAnchor||f.destinationIndex;e.defensePoint=point?validPoint(point):f.anchor.clone();e.defenseSource=f.tactics.defenseAnchor?'USER':point?'AUTO':'CURRENT';} }
+    if(e.policy==='POINT_DEFENSE'&&e.anchorRevision!==f.tactics.anchorRevision){const point=f.tactics.defenseAnchor||f.destinationIndex;e.defensePoint=point?validPoint(point):f.anchor.clone();e.defenseSource=f.tactics.defenseAnchor?'USER':point?'AUTO':'CURRENT';e.anchorRevision=f.tactics.anchorRevision;e.arrived=false;}
+    const enemy=bounds.get(e.enemyId),gone=!enemy;if(!gone&&distance(own,enemy)>ENCOUNTER_CONFIG.exit)e.outside+=dt;else if(!gone)e.outside=0;
+    if(e.policy==='POINT_DEFENSE'){e.target=e.defensePoint.clone();e.face=enemy?enemy.center.clone().sub(f.anchor):null;e.arrived=e.arrived||(f.anchor.distanceTo(e.defensePoint)<=CONFIG.arrivalDistance&&f.velocity.length()<=CONFIG.arrivalSpeed);}
+    if((gone||e.outside>=ENCOUNTER_CONFIG.grace)&&(e.policy!=='POINT_DEFENSE'||e.arrived)){e.active=false;e.enemyId=null;e.target=null;e.face=null;continue;}
+    if(e.policy==='STANDOFF'&&enemy){const toward=enemy.center.clone().sub(f.anchor),d=toward.length();if(d>1e-9)toward.multiplyScalar(1/d);else toward.copy(f.lastHorizontal);if(e.mode==='APPROACH'&&d<=ENCOUNTER_CONFIG.maxRange-1)e.mode='HOLD';else if(e.mode==='RETREAT'&&d>=ENCOUNTER_CONFIG.minRange+1)e.mode='HOLD';else if(e.mode==='HOLD'&&d>ENCOUNTER_CONFIG.maxRange+1)e.mode='APPROACH';else if(e.mode==='HOLD'&&d<ENCOUNTER_CONFIG.minRange-1)e.mode='RETREAT';const amount=e.mode==='APPROACH'?Math.max(0,d-ENCOUNTER_CONFIG.maxRange):e.mode==='RETREAT'?-Math.max(0,ENCOUNTER_CONFIG.minRange-d):0;e.target=f.anchor.clone().addScaledVector(toward,amount).clamp(vec(BATTLEFIELD.min.x,BATTLEFIELD.min.y,BATTLEFIELD.min.z),vec(BATTLEFIELD.max.x,BATTLEFIELD.max.y,BATTLEFIELD.max.z));e.face=toward;}
+  }
+}
 export function step(state,dt=CONFIG.dt){
   if(state.phase!=='RUNNING')return;
   const all=state.fleets.flatMap(f=>f.ships).filter(s=>s.alive),snapshot=new Map(all.map(s=>[s.id,s.position.clone()]));
   const movementIndex=new ShipSpatialIndex(all,snapshot);
+  updateEncounters(state,dt);
   for(const f of state.fleets){moveAnchor(f,dt);const points=slots(f);
     f.ships.forEach((s,i)=>{
       if(!s.alive)return;
