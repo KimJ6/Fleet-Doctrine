@@ -1,1 +1,6 @@
-﻿schema_version,generation_id,weapon_type_id,display_name,damage_per_round,cooldown_sec,range
+﻿weapon_type_id,display_name,effect_type,damage_per_round,cooldown_sec,range,ray_duration_sec,ray_interval_sec
+BOLT01,,BOLT,1,0.2,32,,
+BOLT02,,BOLT,5,1,32,,
+BOLT03,,BOLT,10,2,40,,
+BOLT04,,BOLT,20,2,48,,
+RAY01,,RAY,5,10,48,3,0.2

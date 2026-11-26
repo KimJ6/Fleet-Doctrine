@@ -23,6 +23,8 @@
   <label for="asset-select">작업 폴더 함선 10종</label><select id="asset-select"></select>
 <div id="analysis-status" class="hint"></div>
 <label><input id="draft-joints" type="checkbox">추정 접합부 허용 (검수용)</label>
+  <label><input id="inspect-motion" type="checkbox">회전 간섭 검사 건너뛰기 (리깅 검수용)</label>
+  <div class="hint">검수 중 회전 간섭 검사를 생략합니다. 발사 경로 차단은 유지됩니다.</div>
 <div class="hint">접합부 승인 전에는 정상 이동도 차단될 수 있습니다. 각도 표본은 연속 무충돌 보증이 아닙니다.</div>
 <details><summary>접합부 후보 검수</summary><select id="joint-select"></select><label><input id="joint-visible" type="checkbox">선택 접합 영역 표시 (분홍 구)</label><button id="approve-joint" type="button">선택 영역 승인 (이번 로드)</button><div class="hint">실제 접합부를 확인한 부품 쌍만 승인합니다. 모델 재로드 시 초기화됩니다.</div></details>
 <label for="model-file">함선 FBX와 텍스처 선택</label>

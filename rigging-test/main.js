@@ -184,8 +184,17 @@ async function loadShip(url, label) {
     const value = Number($(id).value);
     const side = id === 'yaw' && t.key.match(/^D01_Broadside_([LR])_/);
     const targets = side ? turrets.filter(other => other.key.startsWith(`D01_Broadside_${side[1]}_`)) : [t];
-    const result = safety.moveBatch(targets.map(weapon=>({weapon,yaw:id==='yaw'?value:weapon.yaw,pitch:id==='pitch'?value:weapon.pitch})));
-    $('status').textContent = result.allowed ? '이동 검사 통과 · 각도 표본 검사' : `이동 차단 · ${result.reason.a||''} / ${result.reason.b||result.reason.type}`;
+    if ($('inspect-motion').checked) {
+      for (const weapon of targets) {
+        if (id === 'yaw') weapon.yaw = value; else weapon.pitch = value;
+        applyPose(weapon);
+      }
+      ship.updateWorldMatrix(true, true);
+      $('status').textContent = '리깅 검수 · 회전 간섭 검사 생략 · 발사 경로 검사는 유지';
+    } else {
+      const result = safety.moveBatch(targets.map(weapon=>({weapon,yaw:id==='yaw'?value:weapon.yaw,pitch:id==='pitch'?value:weapon.pitch})));
+      $('status').textContent = result.allowed ? '이동 검사 통과 · 각도 표본 검사' : `이동 차단 · ${result.reason.a||''} / ${result.reason.b||result.reason.type}`;
+    }
     updateControls();
   });
   $('fire').addEventListener('click', () => { const t = selectedTurret(); if (t) fire(t); });

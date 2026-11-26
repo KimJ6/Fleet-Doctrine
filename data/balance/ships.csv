@@ -1,11 +1,11 @@
-﻿schema_version,generation_id,ship_id,display_name,model_path,max_hp,max_shield,forward_speed,price,enabled
-1,DRAFT_20261124_01,D01,구축함 01,Destroyer_01_rigged.fbx,,,,,FALSE
-1,DRAFT_20261124_01,D02,구축함 02,Destroyer_02_rigged.fbx,,,,,FALSE
-1,DRAFT_20261124_01,D03,구축함 03,Destroyer_03_rigged.fbx,,,,,FALSE
-1,DRAFT_20261124_01,D04,구축함 04,Destroyer_04_rigged.fbx,,,,,FALSE
-1,DRAFT_20261124_01,D05,구축함 05,Destroyer_05_rigged.fbx,,,,,FALSE
-1,DRAFT_20261124_01,LC01,경순양함 01,Light_cruiser_01_rigged.fbx,1000,,5,30,FALSE
-1,DRAFT_20261124_01,LC02,경순양함 02,Light_cruiser_02_rigged.fbx,,,,,FALSE
-1,DRAFT_20261124_01,LC03,경순양함 03,Light_cruiser_03_rigged.fbx,,,,,FALSE
-1,DRAFT_20261124_01,LC04,경순양함 04,Light_cruiser_04_rigged.fbx,,,,,FALSE
-1,DRAFT_20261124_01,LC05,경순양함 05,Light_cruiser_05_rigged.fbx,,,,,FALSE
+﻿ship_id,display_name,model_path,max_hp,max_shield,forward_speed,price,enabled
+D01,구축함 01,Destroyer_01_rigged.fbx,,,,,FALSE
+D02,구축함 02,Destroyer_02_rigged.fbx,,,,,FALSE
+D03,구축함 03,Destroyer_03_rigged.fbx,,,,,FALSE
+D04,구축함 04,Destroyer_04_rigged.fbx,,,,,FALSE
+D05,구축함 05,Destroyer_05_rigged.fbx,,,,,FALSE
+LC01,경순양함 01,Light_cruiser_01_rigged.fbx,500,500,5,30,TRUE
+LC02,경순양함 02,Light_cruiser_02_rigged.fbx,,,,,FALSE
+LC03,경순양함 03,Light_cruiser_03_rigged.fbx,,,,,FALSE
+LC04,경순양함 04,Light_cruiser_04_rigged.fbx,,,,,FALSE
+LC05,경순양함 05,Light_cruiser_05_rigged.fbx,,,,,FALSE
