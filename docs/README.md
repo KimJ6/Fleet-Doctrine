@@ -9,7 +9,7 @@
 | 위치 | 역할 | 현재 문서 |
 |---|---|---|
 | `spec/` | 게임 규칙의 최신 기준. 확정·권장·미결을 구분 | [v2.2 통합 기획](spec/game-design-v2.2.md) |
-| `design/` | 구현 책임, 단계·수용 기준, 기술적 제안 | [구현 계획](design/implementation-plan.md), [2단계 상세 재설계](design/phase2-data-oriented-combat-design.md), [2단계 전투·CG 참고](design/phase2-combat-cg-reference.md) |
+| `design/` | 구현 책임, 단계·수용 기준, 기술적 제안 | [현행 조우 정책 재설계](design/Fleet-Doctrine-Encounter-Policy-Redesign.md), [기존 구현 계획과 이력](design/implementation-plan.md), [2단계 상세 재설계](design/phase2-data-oriented-combat-design.md), [2단계 전투·CG 참고](design/phase2-combat-cg-reference.md) |
 | `policies/` | 에셋·리깅 등 지속 적용할 작업 원칙 | [함선 리깅 정책](policies/ship-rigging.md) |
 | `investigations/` | 이슈별 실험, 측정 조건·결과·남은 작업 | [이슈 #1: 교전 성능 조사](investigations/issue-001-combat-performance.md), [대규모 전투 처리 사례](investigations/issue-001-large-scale-combat-cases.md) |
 | `archive/` | 최신 문서에 반영된 이전 판과 변경 이력. 당시 내용 보존 | [폐기된 2단계 상세 설계](archive/phase2-combat-design-superseded-2026-11-23.md), [v2.1 기획](archive/game-design-v2.1.md), [공간 입력 보강](archive/spatial-controls-v2.1.md), [v2.2 구역 확장](archive/zone-control-v2.2.md) |
@@ -23,6 +23,8 @@
 2. 구현 계획은 기획을 실현하기 위한 설계다. 참고 설계와 조사 기록은 제안 또는 관찰이며 기획을 자동 변경하지 않는다. 이전 판과 부속 이력의 당시 우선순위는 현재 통합본을 대체하지 않는다.
 3. 실제 동작은 현재 코드·실행 조건을 확인한다. **기획 채택, 설계, 구현, 테스트 통과, 수동 관찰, 성능 측정**을 구분하며 코드나 테스트의 존재만으로 통과를 주장하지 않는다.
 4. 모델별 정책과 게임 규칙이 만나는 부분은 양쪽의 적용 범위를 명시한다. 기획이 미결인 아군 피해 등은 구현 임시 선택을 확정 기획으로 기록하지 않는다.
+
+현행 조우·진형·기동은 2026-11-27 [조우 정책 재설계](design/Fleet-Doctrine-Encounter-Policy-Redesign.md)를 우선한다. v2.2 및 기존 구현 계획의 이전 전술 설명은 이력으로 보존하며 그 외 규칙에 대한 효력은 유지한다.
 
 ## 작성·변경 규칙
 

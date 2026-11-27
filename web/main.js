@@ -1,62 +1,37 @@
 import * as THREE from 'three';
-import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { CONFIG, COMMAND_GRID, BATTLEFIELD, ZONES, SCORE_CONFIG, zoneCounts, captureMuzzleChain, muzzlePoseFromData, gridToWorld, worldToNearestGrid, insideBattlefield, setDestination, setMovementPolicy, setPatrolRoute, setCombatPolicy, setDefenseAnchor, chooseCombatTarget, gridToWorld as patrolPointWorld, ECONOMY_CONFIG, configureBalance, createEmptyFleet, purchaseShip, assignReserve, deployReserves, prepareEnemyAI, checkRecovery, initialState, slots, grid, dimensions, validateSize, sizeForSpacing, step, start } from './simulation.js?v=effects-20261126-4';
-import { discoverRig, initializeWeapons, applyPose, pitchRange } from '../rigging-test/rig-control.js';
-import { RigSafety } from '../rigging-test/rig-safety.js';
+import { CONFIG, COMMAND_GRID, BATTLEFIELD, ZONES, SCORE_CONFIG, zoneCounts, gridToWorld, worldToNearestGrid, insideBattlefield, setDestination, setMovementPolicy, setPatrolRoute, setCombatPolicy, setDefenseAnchor, gridToWorld as patrolPointWorld, ECONOMY_CONFIG, configureBalance, createEmptyFleet, purchaseShip, assignReserve, deployReserves, prepareEnemyAI, checkRecovery, initialState, slots, grid, dimensions, validateSize, sizeForSpacing, step, start } from './simulation.js?v=tactics-20261128h';
+import { approximateMoveBatch } from './ship-rig-adapter.js?v=refactor-20261127c';
+import { loadShipViews } from './ship-view.js?v=tactics-20261128h';
+import { loadBalance } from './balance.js?v=maneuver-20261128h';
+import { createBattleCombat } from './weapon-combat.js?v=tactics-20261128h';
+import { createEffects } from './effects.js?v=refactor-20261127d';
+import { createCameraInput } from './camera-input.js?v=refactor-20261127c';
+import { createStatusUI } from './status-ui.js?v=tactics-20261128g';
 
-// Game-only broad phase. The reference rigging tool and its hashed analysis remain unchanged.
-class GameRigSafety extends RigSafety {
-  constructor(root,weapons,options){
-    super(root,weapons,options);
-    this.fixedPairs=[];this.dynamicPairs=[];this.ownerIds=new Map();this.pairCache=new Map();
-    for(const part of this.parts)if(!this.ownerIds.has(part.owner))this.ownerIds.set(part.owner,this.ownerIds.size);
-    for(let i=0;i<this.parts.length;i++)for(let j=i+1;j<this.parts.length;j++){
-      const a=this.parts[i],b=this.parts[j];if(a.owner===b.owner)continue;
-      (a.owner&&b.owner?this.dynamicPairs:this.fixedPairs).push([a,b]);
-    }
-  }
-  poseCollision(activeOwners=null,{fixedOnly=false,dynamicOnly=false}={}){
-    this.update();
-    if(this.confirmedNeutral&&this.weapons.every(w=>!w.pivot||(Math.abs(w.yaw)<1e-9&&Math.abs(w.pitch)<1e-9)))return null;
-    const scanFixed=()=>{
-      if(activeOwners&&this.precomputed){
-        const w=this.weapons.find(w=>w.pivot&&activeOwners.size===w.barrels.length+1&&activeOwners.has(w.pivot)&&w.barrels.every(b=>activeOwners.has(b)));
-        const saved=w&&this.precomputed.weapons.find(x=>x.key===w.key&&JSON.stringify(x.settings)===JSON.stringify(w.settings));
-        const sample=saved?.samples.find(p=>p.yaw===w.yaw&&p.pitch===w.pitch);
-        if(sample)return this.allowInferredJoints?sample.draftBlocked:sample.blocked;
-      }
-      if(dynamicOnly)return null;
-      return scan(this.fixedPairs,'fixed');
-    };
-    const candidates=(pairs,kind)=>{
-      if(!activeOwners)return pairs;
-      const ids=[...activeOwners].filter(o=>this.ownerIds.has(o)).map(o=>this.ownerIds.get(o)).sort((a,b)=>a-b);
-      const key=kind+':'+ids.join(',');let selected=this.pairCache.get(key);
-      if(!selected){selected=pairs.filter(([a,b])=>activeOwners.has(a.owner)||activeOwners.has(b.owner));if(this.pairCache.size>=128)this.pairCache.delete(this.pairCache.keys().next().value);this.pairCache.set(key,selected);}
-      return selected;
-    };
-    const scan=(pairs,kind)=>{for(const [a,b] of candidates(pairs,kind)){
-      if(!a.box.intersectsBox(b.box))continue;
-      const hit=this.pairCollision(a,b);if(hit)return hit;
-    }return null;};
-    if(fixedOnly)return scanFixed();
-    if(dynamicOnly)return scan(this.dynamicPairs,'dynamic');
-    return scanFixed()||scan(this.dynamicPairs,'dynamic');
-  }
-}
 
 const $ = id => document.getElementById(id);
-function parseBalanceCSV(text,file){const rows=[];let row=[],field='',quoted=false,closed=false;for(let i=0,input=text.replace(/^\uFEFF/,'');i<input.length;i++){const c=input[i];if(quoted){if(c==='"'){if(input[i+1]==='"'){field+='"';i++;}else{quoted=false;closed=true;}}else field+=c;continue;}if(closed&&!(',\r\n'.includes(c)))throw Error(file+': 따옴표 오류');if(c==='"'){if(field||closed)throw Error(file+': 따옴표 오류');quoted=true;}else if(c===','){row.push(field);field='';closed=false;}else if(c==='\r'||c==='\n'){if(c==='\r'&&input[i+1]==='\n')i++;row.push(field);if(row.some(Boolean))rows.push(row);row=[];field='';closed=false;}else field+=c;}if(quoted)throw Error(file+': 따옴표 미종료');if(field||row.length){row.push(field);rows.push(row);}const header=rows.shift(),required={ships:['ship_id','display_name','model_path','max_hp','max_shield','forward_speed','price','enabled'],ship_weapons:['ship_id','weapon_id','weapon_type_id','mount_kind','muzzle_count'],weapon_types:['weapon_type_id','display_name','effect_type','damage_per_round','cooldown_sec','range','ray_duration_sec','ray_interval_sec'],game_rules:['rule_id','value','description']}[file];if(!header||new Set(header).size!==header.length||required.some(x=>!header.includes(x)))throw Error(file+': 필수 헤더 누락 또는 중복');return rows.map((r,i)=>{if(r.length!==header.length)throw Error(file+': '+(i+2)+'행 열 수 오류');return Object.fromEntries(header.map((h,j)=>[h,r[j]]));});}
-async function loadBalance(){const tables={};await Promise.all(['ships','ship_weapons','weapon_types','game_rules'].map(async n=>{const r=await fetch('../data/balance/'+n+'.csv',{cache:'no-store'});if(!r.ok)throw Error(n+'.csv 로딩 실패');tables[n]=parseBalanceCSV(await r.text(),n);}));const unique=(rows,key)=>{let ids=new Set();for(const r of rows){const id=key(r);if(!id||ids.has(id))throw Error('식별자 누락 또는 중복: '+id);ids.add(id);}return ids;};const ships=unique(tables.ships,r=>r.ship_id),typeids=unique(tables.weapon_types,r=>r.weapon_type_id);unique(tables.ship_weapons,r=>r.ship_id&&r.weapon_id?r.ship_id+':'+r.weapon_id:'');unique(tables.game_rules,r=>r.rule_id);const number=(r,k,zero=false,int=false)=>{const t=r[k],v=Number(t);if(t===undefined||t.trim()===''||!Number.isFinite(v)||(zero?v<0:v<=0)||(int&&!Number.isSafeInteger(v)))throw Error((r.ship_id||r.weapon_type_id||r.rule_id)+': '+k+' 값 오류');return v;};for(const r of tables.ships)if(!/^(D|LC)\d{2}$/.test(r.ship_id)||!['true','false'].includes((r.enabled||'').toLowerCase())||!r.model_path||r.model_path.includes('..')||/[\\/:]/.test(r.model_path))throw Error('함선 설정 오류: '+r.ship_id);for(const r of tables.ship_weapons){if(!ships.has(r.ship_id)||!/^W\d{2}$/.test(r.weapon_id)||!['turret','fixed','barrel_only'].includes(r.mount_kind))throw Error('포 설정 오류: '+r.ship_id+'/'+r.weapon_id);number(r,'muzzle_count',false,true);if(r.weapon_type_id&&!typeids.has(r.weapon_type_id))throw Error('미등록 포 유형: '+r.weapon_type_id);}const types=new Map(tables.weapon_types.map(r=>{if(!/^[A-Z0-9_]+$/.test(r.weapon_type_id))throw Error('포 유형 ID 오류');const effect=(r.effect_type||'').trim().toUpperCase();if(!['BOLT','RAY'].includes(effect))throw Error(r.weapon_type_id+': effect_type은 BOLT 또는 RAY여야 합니다.');const damage=number(r,'damage_per_round',false,true),cooldown=number(r,'cooldown_sec'),range=number(r,'range');let durationTicks=0,intervalTicks=0;if(effect==='RAY'){const duration=number(r,'ray_duration_sec'),interval=number(r,'ray_interval_sec'),ticks=x=>{const value=x/CONFIG.dt,rounded=Math.round(value);if(rounded<1||!Number.isSafeInteger(rounded)||Math.abs(value-rounded)>1e-8)throw Error(r.weapon_type_id+': 광선 시간은 고정 틱의 정수 배여야 합니다.');return rounded;};durationTicks=ticks(duration);intervalTicks=ticks(interval);if(cooldown+1e-9<duration)throw Error(r.weapon_type_id+': 재사용 시간은 광선 지속 시간 이상이어야 합니다.');}else if((r.ray_duration_sec||'').trim()||(r.ray_interval_sec||'').trim())throw Error(r.weapon_type_id+': BOLT에 광선 시간은 비워야 합니다.');return[r.weapon_type_id,Object.freeze({id:r.weapon_type_id,effect,damage,cooldown,range,durationTicks,intervalTicks})]}));const enabled=tables.ships.filter(r=>(r.enabled||'').toLowerCase()==='true');if(!enabled.length)throw Error('활성 함선이 없습니다. CSV에서 함선 능력치와 포 유형을 지정하세요.');if(enabled.some(r=>r.ship_id!=='LC01'))throw Error('현재 모델 연결은 LC01만 지원합니다.');const r=enabled.find(r=>r.ship_id==='LC01');if(!r)throw Error('시작 함선 LC01이 비활성입니다.');const ship=Object.freeze({max_hp:number(r,'max_hp',false,true),max_shield:number(r,'max_shield',true,true),forward_speed:number(r,'forward_speed'),price:number(r,'price',false,true),model_path:r.model_path});const mounts=new Map();for(const m of tables.ship_weapons.filter(x=>x.ship_id==='LC01')){if(!m.weapon_type_id||!types.has(m.weapon_type_id))throw Error('LC01/'+m.weapon_id+': 포 유형을 지정하세요.');mounts.set(m.weapon_id,Object.freeze({type:types.get(m.weapon_type_id),kind:m.mount_kind,muzzles:number(m,'muzzle_count',false,true)}));}if(!mounts.size)throw Error('LC01 포가 없습니다.');const ruleRows=new Map(tables.game_rules.map(r=>[r.rule_id,r])),rules={};for(const k of ['score_interval_sec','score_base','score_advantage_cap','side_zone_multiplier','center_zone_multiplier','victory_score']){const r=ruleRows.get(k);if(!r)throw Error('득점 규칙 누락: '+k);rules[k]=number(r,'value',false,k!=='score_interval_sec');}if(Math.abs(rules.score_interval_sec/CONFIG.dt-Math.round(rules.score_interval_sec/CONFIG.dt))>1e-8)throw Error('득점 주기는 고정 틱의 정수 배여야 합니다.');return Object.freeze({ship,mounts,rules:Object.freeze(rules),maxRange:Math.max(...[...mounts.values()].map(m=>m.type.range))});}
-const state=initialState();let balance=null,balanceError='';try{balance=await loadBalance();configureBalance(balance);for(const f of state.fleets)for(const ship of f.ships){ship.hp=ship.maxHp=balance.ship.max_hp;ship.shield=ship.maxShield=balance.ship.max_shield;ship.forwardSpeed=balance.ship.forward_speed;}}catch(e){balanceError=e.message;}
+
+const initialization={phase:'LOADING_DATA',error:''};
+let balance=null,balanceError='';try{balance=await loadBalance(CONFIG.dt);configureBalance(balance);initialization.phase='LOADING_ASSETS';}catch(e){balanceError=e.message;initialization.phase='ERROR';initialization.error=e.message;}
+const state=initialState();
+state.experimentalManeuver=new URLSearchParams(location.search).get('maneuver')==='experimental';
+if(new URLSearchParams(location.search).get('profile')==='1')state.profile={ticks:0,shots:0,frames:0,ms:{},frameIntervals:[],frameSummary:null,wallMs:0,cappedMs:0,droppedStepMs:0};
+// Explicit opt-in benchmark scene; uses normal model, rig, weapon and rendering paths.
+if(state.profile&&new URLSearchParams(location.search).get('stress')==='64'){
+  for(const [index,f] of state.fleets.entries()){
+    const prototype=f.ships[0];f.ships=Array.from({length:16},(_,i)=>({...prototype,id:f.id+'-stress-'+(i+1),position:new THREE.Vector3(),velocity:new THREE.Vector3(),rotation:f.rotation.clone(),weapons:[]}));
+    f.anchor.set(index%2===0?-15:15,0,f.team==='ALLY'?30:-30);f.spacingLevels={x:'tight',y:'tight',z:'tight'};f.size.copy(sizeForSpacing(f.ships.length,f.spacingLevels));setCombatPolicy(f,'LINE');
+    slots(f).forEach((point,i)=>f.ships[i].position.copy(point));
+  }
+}
 const friendly = state.fleets.filter(f => f.team === 'ALLY');
 let prepareUnitView=null, purchaseCounter=0;state.rayEffects=[];
 let selected = friendly[0];
 let draft = null, patrolEdit = null;
 let shipMode=null,manualPaused=false;
-const tacticLabels={COLUMN:'장사진',LINE:'일자진',BREAKTHROUGH:'관통 공격',ENCIRCLE:'분산 포위',POINT_DEFENSE:'거점 방어'};
-const tacticDescriptions={COLUMN:'진행 방향과 평행하게 전개하고 이동을 우선합니다.',LINE:'적 방향에 수직으로 전개하고 교전을 우선합니다.',BREAKTHROUGH:'적 진형을 통과한 뒤 후방에서 싸웁니다.',ENCIRCLE:'여러 방향으로 나뉘어 적을 공격합니다.',POINT_DEFENSE:'조우 시 거점으로 모여 적을 추격하지 않습니다.'};
+const tacticLabels={COLUMN:'단종진',LINE:'일자진',BREAKTHROUGH:'어린진',POINT_DEFENSE:'원형진'};
+const tacticDescriptions={COLUMN:'종렬로 이동하며 경로의 적을 우회하거나 정지합니다.',LINE:'적을 향해 전면을 전개하고 교전합니다.',BREAKTHROUGH:'어린진을 형성해 전방의 적 진형을 돌파합니다.',POINT_DEFENSE:'조우 시 거점에 구형 진형을 구축합니다.'};
 const viewport=$('viewport');
 const viewportSize=()=>({width:Math.max(1,viewport.clientWidth),height:Math.max(1,viewport.clientHeight)});
 let activeCamera;
@@ -68,36 +43,7 @@ const scene=new THREE.Scene();scene.background=new THREE.Color(0x080e1b);
 const camera=new THREE.PerspectiveCamera(45,viewportSize().width/viewportSize().height,0.1,1000);camera.position.set(48,40,65);
 activeCamera=camera; pickingCamera=new THREE.OrthographicCamera(-75,75,75,-75,0.1,1000);
 const orbit=new OrbitControls(camera,renderer.domElement);orbit.enableDamping=true;orbit.target.set(0,0,4);orbit.minDistance=4;orbit.maxDistance=160;
-const cameraKeys = new Set();
-const cameraKeyCodes = new Set(['KeyW','KeyA','KeyS','KeyD','KeyR','KeyF']);
-const editable = element => element instanceof HTMLElement && (element.matches('input, textarea, select, button, summary') || element.isContentEditable);
-window.addEventListener('keydown', event => {
-  if ((draft && (event.code==='KeyR'||event.code==='KeyF')) || !cameraKeyCodes.has(event.code) || editable(event.target) || event.altKey || event.ctrlKey || event.metaKey) return;
-  event.preventDefault(); cameraKeys.add(event.code);
-});
-window.addEventListener('keyup', event => cameraKeys.delete(event.code));
-window.addEventListener('blur', () => cameraKeys.clear());
-document.addEventListener('visibilitychange', () => { if (document.hidden) cameraKeys.clear(); });
-document.addEventListener('focusin', event => { if (editable(event.target)) cameraKeys.clear(); });
-const cameraForward = new THREE.Vector3();
-const cameraRight = new THREE.Vector3();
-const cameraMove = new THREE.Vector3();
-const worldUp = new THREE.Vector3(0,1,0);
-function moveCamera(dt) {
-  camera.getWorldDirection(cameraForward);
-  cameraRight.setFromMatrixColumn(camera.matrix, 0).normalize();
-  cameraMove.set(0,0,0);
-  if (cameraKeys.has('KeyW')) cameraMove.add(cameraForward);
-  if (cameraKeys.has('KeyS')) cameraMove.sub(cameraForward);
-  if (cameraKeys.has('KeyD')) cameraMove.add(cameraRight);
-  if (cameraKeys.has('KeyA')) cameraMove.sub(cameraRight);
-  if (cameraKeys.has('KeyR')) cameraMove.add(worldUp);
-  if (cameraKeys.has('KeyF')) cameraMove.sub(worldUp);
-  if (cameraMove.lengthSq() > 0) {
-    cameraMove.normalize().multiplyScalar(18 * dt);
-    camera.position.add(cameraMove); orbit.target.add(cameraMove);
-  }
-}
+const {cameraKeys,moveCamera}=createCameraInput({camera,orbit,isPicking:()=>!!draft});
 scene.add(new THREE.HemisphereLight(0xddeaff,0x44536c,2));const light=new THREE.DirectionalLight(0xffffff,2.2);light.position.set(-20,40,30);scene.add(light);
 const markerGeometry=new THREE.SphereGeometry(.24,12,8), markerMaterial=new THREE.MeshBasicMaterial({color:0x54dbff});
 const targetMarker=new THREE.Mesh(new THREE.OctahedronGeometry(.7),new THREE.MeshBasicMaterial({color:0xffd46a,wireframe:true}));scene.add(targetMarker);
@@ -106,92 +52,11 @@ const tacticalGroup=new THREE.Group();scene.add(tacticalGroup);const tacticalGeo
 const slotGroup=new THREE.Group();scene.add(slotGroup);
 const waypointGroup=new THREE.Group();scene.add(waypointGroup);let waypointSignature='';
 const lineMaterial=new THREE.LineBasicMaterial({color:0xffd46a});const lineGeometry=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]);const route=new THREE.Line(lineGeometry,lineMaterial);scene.add(route);
-const views=new Map(), rigs=new Map(), moveSafetyCache=new Map();
-const rayViews=new Map(),shotMaterial=new THREE.LineBasicMaterial({color:0xffd87a,transparent:true,opacity:.9});
+const views=new Map(), rigs=new Map();
 for(const zone of ZONES){const size=zone.max.clone().sub(zone.min),center=zone.min.clone().add(zone.max).multiplyScalar(.5);const box=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(size.x,size.y,size.z)),new THREE.LineBasicMaterial({color:zone.multiplier===2?0xc69b51:0x3d7388,transparent:true,opacity:.36}));box.position.copy(center);scene.add(box);}
-// Approximate visual movement guard. AABB overlap is not an exact collision test.
-// Muzzle and projectile safety continue to use the separate mesh checks.
-function boxOverlapFraction(a,b){
-  const x=Math.max(0,Math.min(a.max.x,b.max.x)-Math.max(a.min.x,b.min.x));
-  const y=Math.max(0,Math.min(a.max.y,b.max.y)-Math.max(a.min.y,b.min.y));
-  const z=Math.max(0,Math.min(a.max.z,b.max.z)-Math.max(a.min.z,b.min.z));
-  const volume=box=>Math.max(0,box.max.x-box.min.x)*Math.max(0,box.max.y-box.min.y)*Math.max(0,box.max.z-box.min.z);
-  const smaller=Math.min(volume(a),volume(b));return smaller>1e-15?x*y*z/smaller:0;
-}
-function approximateMoveBatch(rig,proposals){
-  const pending=new Set(proposals);while(pending.size){const component=[pending.values().next().value];pending.delete(component[0]);let changed=true;while(changed){changed=false;const owners=new Set(component.flatMap(p=>[p.weapon.pivot,...p.weapon.barrels]));for(const proposal of pending){const parts=new Set([proposal.weapon.pivot,...proposal.weapon.barrels]);if(rig.safety.dynamicPairs.some(([a,b])=>(owners.has(a.owner)&&parts.has(b.owner))||(owners.has(b.owner)&&parts.has(a.owner)))){component.push(proposal);pending.delete(proposal);changed=true;}}}applyMoveComponent(rig,component);}
-}
-function applyMoveComponent(rig,proposals){
-  if(!proposals.length)return;
-  const safety=rig.safety,active=new Set(proposals.flatMap(p=>[p.weapon.pivot,...p.weapon.barrels]));
-  const pairs=[...safety.fixedPairs,...safety.dynamicPairs].filter(([a,b])=>active.has(a.owner)||active.has(b.owner));
-  safety.update();const before=pairs.map(([a,b])=>boxOverlapFraction(a.box,b.box));
-  const original=proposals.map(({weapon:w})=>({w,yaw:w.yaw,pitch:w.pitch}));
-  try{
-    for(const p of proposals){p.weapon.yaw=p.yaw;p.weapon.pitch=p.pitch;applyPose(p.weapon);}
-    safety.update();
-    // Permit the overlap already present in the current pose. Stop only a large new
-    // overlap; legitimate contacts and thin geometry still need visual validation.
-    const blocked=pairs.some(([a,b],i)=>{const next=boxOverlapFraction(a.box,b.box);return next>0.65&&next>before[i]+0.20;});
-    if(blocked)for(const x of original){x.w.yaw=x.yaw;x.w.pitch=x.pitch;applyPose(x.w);}
-  }catch(error){for(const x of original){x.w.yaw=x.yaw;x.w.pitch=x.pitch;applyPose(x.w);}throw error;}
-}
 
-// Weapon state belongs to the ship; the rig remains the adapter for visual and safety checks.
-function teamForShip(state,ship){return state.fleets.find(f=>f.id===ship.fleetId)?.team;}
-function battleCombat(state,ships,dt,index){
-  const shots=[],tick=Math.round(state.time/CONFIG.dt);state.rayEffects=[];
-  for(const ship of ships){const rig=rigs.get(ship.id);if(!rig?.safe)continue;for(const w of rig.weapons){const data=w.combatState,active=data.activeRays;if(!active)continue;for(const [muzzleIndex,ray] of active){if(tick>=ray.endTick){active.delete(muzzleIndex);continue;}const pose=muzzlePoseFromData(w.muzzleChains[muzzleIndex],w,ship.position,ship.rotation,data.yaw,data.pitch),end=pose.position.clone().addScaledVector(pose.direction,ray.displayLength??ray.length);const fx={id:data.id+':'+muzzleIndex,origin:pose.position.clone(),position:end};state.rayEffects.push(fx);if(tick===ray.nextTick){ray.nextTick+=w.balance.intervalTicks;rig.view.position.copy(ship.position);rig.view.quaternion.copy(ship.rotation);rig.view.updateWorldMatrix(true,true);const muzzle=w.muzzleNodes[muzzleIndex],range=ray.length;shots.push({ownerShipId:ship.id,muzzleId:muzzle.name,team:teamForShip(state,ship),position:pose.position.clone(),direction:pose.direction,range,radius:.1,damage:w.balance.damage,weapon:data,isRayPulse:true,validate:()=>{try{return !rig.safety.muzzleBlocked(muzzle,{radius:.1,range});}catch(e){rig.safe=false;rig.reason='포구 안전 검사 오류';console.error(e);return false;}},onResolved:hit=>{ray.displayLength=hit?pose.position.distanceTo(hit):ray.length;if(hit)fx.position.copy(hit);}});}}}}
-  for(const ship of ships){const rig=rigs.get(ship.id);if(!rig)continue;for(const w of rig.weapons){const data=w.combatState;if(data.aimYaw===undefined)continue;const approach=(a,b,rate)=>a+THREE.MathUtils.clamp(b-a,-rate*dt,rate*dt);data.yaw=approach(data.yaw,data.aimYaw,w.settings.yawSpeed??35);data.pitch=THREE.MathUtils.clamp(approach(data.pitch,data.aimPitch,w.settings.pitchSpeed??35),...pitchRange({...w,yaw:data.yaw}));w.yaw=data.yaw;w.pitch=data.pitch;applyPose(w);}}
-  // Invalid targets are cleared each fixed tick; full reassignment remains at 5 Hz.
-  const aliveById=new Map(ships.map(ship=>[ship.id,ship])),teamLookup=new Map(state.fleets.map(f=>[f.id,f.team]));
-  for(const ship of ships){const rig=rigs.get(ship.id);if(!rig)continue;for(const w of rig.weapons){const target=aliveById.get(w.combatState.targetId);if(w.combatState.targetId&&(!target||teamLookup.get(target.fleetId)===teamLookup.get(ship.fleetId)||ship.position.distanceToSquared(target.position)>(w.balance?.range??CONFIG.weaponRange)**2)){w.combatState.targetId=null;w.target=null;}}}
-  if(Math.round(state.time/CONFIG.dt)%12!==0)return shots;
-  for(const ship of ships){const rig=rigs.get(ship.id);if(!rig)continue;rig.view.position.copy(ship.position);rig.view.quaternion.copy(ship.rotation);}
-  const aimDt=dt*12,teamByFleet=new Map(state.fleets.map(f=>[f.id,f.team])),fleetCandidates=new Map(),assignments=new Map();
-  // Query once per fleet and share the conservative enemy set across its ships.
-  for(const fleet of state.fleets){
-    const alive=fleet.ships.filter(s=>s.alive);if(!alive.length)continue;
-    const bounds=new THREE.Box3().setFromPoints(alive.map(s=>s.position)).expandByScalar(balance?.maxRange??CONFIG.weaponRange);
-    fleetCandidates.set(fleet.id,index.query(bounds.min,bounds.max).filter(s=>teamByFleet.get(s.fleetId)!==fleet.team));
-    assignments.set(fleet.id,new Map());
-  }
-  for(const ship of [...ships].sort((a,b)=>a.id.localeCompare(b.id))){const rig=rigs.get(ship.id);if(!rig?.safe)continue;const fleet=state.fleets.find(f=>f.id===ship.fleetId),nearest=[];
-    for(const w of rig.weapons){w.yaw=w.combatState.yaw;w.pitch=w.combatState.pitch;}
-    // Stable distance ordering; later candidates rotate through a bounded fallback window.
-    for(const enemy of fleetCandidates.get(ship.fleetId)||[]){const distance=ship.position.distanceToSquared(enemy.position);if(distance>(balance?.maxRange??CONFIG.weaponRange)**2)continue;nearest.push({enemy,distance});}
-    nearest.sort((a,b)=>a.distance-b.distance||a.enemy.id.localeCompare(b.enemy.id));
-    const loads=assignments.get(ship.fleetId);
-    for(const w of [...rig.weapons].sort((a,b)=>a.combatState.id.localeCompare(b.combatState.id))){const data=w.combatState;if(data.activeRays?.size){data.cooldown=Math.max(0,(data.cooldown||0)-aimDt);continue;}data.cooldown=Math.max(0,(data.cooldown||0)-aimDt);if(!w.muzzleChains.length){w.target=null;data.targetId=null;continue;}
-      const poses=w.muzzleChains.map(chain=>muzzlePoseFromData(chain,w,ship.position,ship.rotation)),range=w.settings;let maxAngle=0;
-      if(w.pivot){const yaw=Math.max(Math.abs(w.yaw-range.yaw[0]),Math.abs(w.yaw-range.yaw[1])),pitch=Math.max(Math.abs(w.pitch-range.pitch[0]),Math.abs(w.pitch-range.pitch[1]));maxAngle=THREE.MathUtils.degToRad(yaw+pitch)+.1;}
-      const reachable=item=>item.distance<=(w.balance?.range??CONFIG.weaponRange)**2&&poses.some(pose=>{const toward=item.enemy.position.clone().sub(pose.position);if(toward.lengthSq()<1e-12)return false;const dot=pose.direction.dot(toward.normalize());return w.pivot?maxAngle>=Math.PI||dot>=Math.cos(maxAngle):dot>=.995;});
-      const count=nearest.length,rotation=count>4?Math.floor(state.time/.2)%Math.ceil((count-4)/24):0,window=nearest.slice(0,4).concat(nearest.slice(4+rotation*24,4+(rotation+1)*24));
-      const previous=nearest.find(item=>item.enemy.id===data.targetId);if(previous&&!window.includes(previous))window.push(previous);
-      const candidates=[];if(previous&&reachable(previous))candidates.push(previous);for(const item of window){if(item!==previous&&reachable(item)){candidates.push(item);if(candidates.length>=4)break;}}
-      const damage=data.cooldown<=1?(w.balance?.damage??20)*Math.max(1,w.muzzleNodes.length):0,choice=chooseCombatTarget((data.blockedSince!==undefined&&state.time-data.blockedSince>=1&&candidates.length>1?candidates.filter(item=>item.enemy.id!==data.targetId):candidates).map(item=>({...item,distance:item.distance*(item.enemy.fleetId===fleet.encounter.enemyId ? .9 : 1)})),data.targetId,loads,damage);
-      if(choice?.id!==data.targetId)delete data.blockedSince;w.target=choice;data.targetId=choice?.id||null;data.blockReason=!choice?'OUT_OF_RANGE':data.cooldown>0?'RELOADING':'AIMING';if(choice)loads.set(choice.id,(loads.get(choice.id)||0)+damage);
-    }
-    const proposals=rig.weapons.filter(w=>w.pivot&&w.target&&w.muzzleNodes.length).map(w=>{
-      const score=(yaw,pitch)=>{const pose=muzzlePoseFromData(w.muzzleChains[0],w,ship.position,ship.rotation,yaw,pitch),toward=w.target.position.clone().sub(pose.position);return toward.lengthSq()>1e-12?pose.direction.dot(toward.normalize()):-1;};
-      let best=score(w.yaw,w.pitch),yaw=w.yaw,pitch=w.pitch;const oldYaw=yaw,oldPitch=pitch,delta=35*aimDt;
-      for(const stepSize of [delta,delta/7,delta/70])for(const [dy,dp] of [[stepSize,0],[-stepSize,0],[0,stepSize],[0,-stepSize]]){
-        const candidateYaw=THREE.MathUtils.clamp(yaw+dy,Math.max(w.settings.yaw[0],oldYaw-delta),Math.min(w.settings.yaw[1],oldYaw+delta));
-        const candidatePitch=THREE.MathUtils.clamp(pitch+dp,...pitchRange({...w,yaw:candidateYaw})); if(Math.abs(candidatePitch-oldPitch)>delta+1e-9)continue;
-        const value=score(candidateYaw,candidatePitch);if(value>best+1e-9){best=value;yaw=candidateYaw;pitch=candidatePitch;}
-      }
-      return {weapon:w,yaw,pitch};
-    }).filter(p=>Math.abs(p.yaw-p.weapon.yaw)>1e-9||Math.abs(p.pitch-p.weapon.pitch)>1e-9);
-    try{approximateMoveBatch(rig,proposals);for(const w of rig.weapons){w.combatState.aimYaw=w.yaw;w.combatState.aimPitch=w.pitch;w.yaw=w.combatState.yaw;w.pitch=w.combatState.pitch;applyPose(w);}rig.view.updateWorldMatrix(true,true);}catch(e){rig.safe=false;rig.reason='포탑 근사 검사 오류';console.error(e);continue;}
-    for(const w of rig.weapons){if(!w.target||w.combatState.cooldown>0||w.combatState.activeRays?.size)continue;for(let muzzleIndex=0;muzzleIndex<w.muzzleNodes.length;muzzleIndex++){const muzzle=w.muzzleNodes[muzzleIndex],pose=muzzlePoseFromData(w.muzzleChains[muzzleIndex],w,ship.position,ship.rotation),origin=pose.position,dir=pose.direction,toward=w.target.position.clone().sub(origin),range=toward.length();if(range<1e-6||range>(w.balance?.range??CONFIG.weaponRange)||dir.dot(toward.normalize())<.995)continue;
-      // Defer the expensive own-mesh safety check until the broad phase finds an enemy first hit.
-      const validate=()=>{if(!rig.safe)return false;try{const clear=!rig.safety.muzzleBlocked(muzzle,{radius:.1,range});if(!clear){w.combatState.blockReason='OWN_BLOCK';w.combatState.blockedSince??=state.time;}return clear;}catch(e){rig.safe=false;rig.reason='포구 안전 검사 오류';console.error(e);return false;}};
-      shots.push({ownerShipId:ship.id,muzzleId:muzzle.name,team:fleet.team,visualType:w.balance?.id,position:origin.clone(),direction:dir,range,radius:.1,damage:w.balance?.damage??20,weapon:w.combatState,validate,onHit:w.balance?.effect==='RAY'?()=>{const d=w.combatState;d.activeRays??=new Map();d.activeRays.set(muzzleIndex,{endTick:tick+w.balance.durationTicks,nextTick:tick+w.balance.intervalTicks,length:range});}:null});
-    }}
-  }return shots;
-}
-const manager=new THREE.LoadingManager();const assetRoot='../../ship%20assets/rigged/';
-manager.setURLModifier(url=>/\.(png|jpe?g)(\?.*)?$/i.test(url)?`${assetRoot}Texture/${url.split('/').pop().split('\\').pop()}`:url);
+const battleCombat=createBattleCombat({rigs,balance,approximateMoveBatch});
+
 const setError=text=>{$('error').textContent=text};
 const battleSize = new THREE.Vector3(BATTLEFIELD.max.x-BATTLEFIELD.min.x, BATTLEFIELD.max.y-BATTLEFIELD.min.y, BATTLEFIELD.max.z-BATTLEFIELD.min.z);
 const battleBox = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(...battleSize.toArray())),new THREE.LineBasicMaterial({color:0x304c65,transparent:true,opacity:0.55}));
@@ -283,7 +148,7 @@ function selectFleet(fleet) {
   if (draft || patrolEdit || !fleet || fleet.team !== 'ALLY') return;
   selected = fleet;
   chosenShip=null;shipMode=null; setError('');syncUI();$('fleet-tabs').querySelector('[data-fleet-id="'+CSS.escape(selected.id)+'"]')?.scrollIntoView({block:'nearest',inline:'nearest'});updatePreview();
-  $('fleet-info').textContent=`아군 ${selected.id} 함대 · 생존 ${selected.ships.filter(s=>s.alive).length}/${selected.ships.length}척 · ${selected.encounter.active?'교전 중 · '+selected.encounter.enemyId+(selected.encounter.breakthrough?' · '+({APPROACH:'진입',TRANSIT:'관통',REAR_ENGAGE:'후방 교전'}[selected.encounter.breakthrough.phase]||''):selected.encounter.groups?' · '+selected.encounter.groups.length+'방향':''):(selected.encounter.reason||'이동 중')} · 점수 ${state.scores.ALLY} : ${state.scores.ENEMY}`;
+  $('fleet-info').textContent=`아군 ${selected.id} 함대 · 생존 ${selected.ships.filter(s=>s.alive).length}/${selected.ships.length}척 · ${selected.encounter.active?'교전 중 · '+selected.encounter.enemyId+(selected.encounter.breakthrough?' · '+({FORMATION:'돌파 준비',CHARGE:'진입',TRANSIT:'돌파'}[selected.encounter.breakthrough.phase]||''):''):(selected.encounter.reason||'이동 중')} · 점수 ${state.scores.ALLY} : ${state.scores.ENEMY}`;
   drawMinimap();
 }
 function alignCamera(plane) {
@@ -325,7 +190,7 @@ function drawMinimap() {
   for(const zone of ZONES){const a=project(zone.min),b=project(zone.max);ctx.strokeStyle=zone.multiplier===2?'#bda064':'#41677a';ctx.strokeRect(Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.abs(a[0]-b[0]),Math.abs(a[1]-b[1]));}
   const defense=selected.encounter.active&&selected.encounter.policy==='POINT_DEFENSE'?selected.encounter.defensePoint:selected.tactics.policy==='POINT_DEFENSE'?(selected.tactics.defenseAnchor?gridToWorld(selected.tactics.defenseAnchor):selected.destination):null;
   if(defense){const [dx,dy]=project(defense);ctx.strokeStyle='#b8ff91';ctx.lineWidth=2;ctx.strokeRect(dx-5,dy-5,10,10);}
-  const tactical=selected.encounter.active?(selected.encounter.groups?selected.encounter.groups.map(g=>g.target):selected.encounter.breakthrough?[selected.encounter.breakthrough.entry,selected.encounter.breakthrough.exit]:[]):[];for(const point of tactical){const [x,y]=project(point);ctx.strokeStyle='#ff9af1';ctx.beginPath();ctx.moveTo(x,y-5);ctx.lineTo(x+5,y);ctx.lineTo(x,y+5);ctx.lineTo(x-5,y);ctx.closePath();ctx.stroke();}
+  const tactical=selected.encounter.active?(selected.encounter.breakthrough?[selected.encounter.breakthrough.entry,selected.encounter.breakthrough.exit]:[]):[];for(const point of tactical){const [x,y]=project(point);ctx.strokeStyle='#ff9af1';ctx.beginPath();ctx.moveTo(x,y-5);ctx.lineTo(x+5,y);ctx.lineTo(x,y+5);ctx.lineTo(x-5,y);ctx.closePath();ctx.stroke();}
   const [ax,ay] = project(selected.anchor), [tx,ty] = project(selected.destination);
   ctx.strokeStyle = '#ffd46a';ctx.setLineDash([4,3]);ctx.beginPath();ctx.moveTo(ax,ay);const path=patrolEdit?.fleetId===selected.id?patrolEdit.points:selected.movement.policy==='PATROL'?selected.movement.patrolPoints:[];const active=patrolEdit?0:selected.movement.activeIndex,ordered=path.length?[...path.slice(active),...path.slice(0,active)]:[];for(const point of ordered){const [x,y]=project(patrolPointWorld(point));ctx.lineTo(x,y);}if(ordered.length){const [x,y]=project(patrolPointWorld(ordered[0]));ctx.lineTo(x,y);}else ctx.lineTo(tx,ty);ctx.stroke();ctx.setLineDash([]);path.forEach((point,i)=>{const [x,y]=project(patrolPointWorld(point));ctx.fillStyle=i===active&&!patrolEdit?'#ffd46a':'#88d9ff';ctx.beginPath();ctx.arc(x,y,6,0,Math.PI*2);ctx.fill();ctx.fillStyle='#101c2b';ctx.font='bold 9px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(i+1),x,y);});ctx.textAlign='start';ctx.textBaseline='alphabetic';
   ctx.beginPath();ctx.moveTo(tx-5,ty-5);ctx.lineTo(tx+5,ty+5);ctx.moveTo(tx+5,ty-5);ctx.lineTo(tx-5,ty+5);ctx.stroke();
@@ -365,7 +230,7 @@ function updatePreview(){
   while(slotGroup.children.length<positions.length)slotGroup.add(new THREE.Mesh(markerGeometry,markerMaterial));
   positions.forEach((p,i)=>slotGroup.children[i].position.copy(p));
   targetMarker.position.copy(selected.destination);
-  const tactical=selected.encounter.active?(selected.encounter.groups?selected.encounter.groups.map(g=>g.target):selected.encounter.breakthrough?[selected.encounter.breakthrough.entry,selected.encounter.breakthrough.exit]:[]):[];while(tacticalGroup.children.length>tactical.length)tacticalGroup.remove(tacticalGroup.children.at(-1));while(tacticalGroup.children.length<tactical.length){const marker=new THREE.Mesh(tacticalGeometry,tacticalMaterial);marker.renderOrder=4;tacticalGroup.add(marker);}tactical.forEach((p,i)=>tacticalGroup.children[i].position.copy(p));
+  const tactical=selected.encounter.active?(selected.encounter.breakthrough?[selected.encounter.breakthrough.entry,selected.encounter.breakthrough.exit]:[]):[];while(tacticalGroup.children.length>tactical.length)tacticalGroup.remove(tacticalGroup.children.at(-1));while(tacticalGroup.children.length<tactical.length){const marker=new THREE.Mesh(tacticalGeometry,tacticalMaterial);marker.renderOrder=4;tacticalGroup.add(marker);}tactical.forEach((p,i)=>tacticalGroup.children[i].position.copy(p));
   const defense=selected.encounter.active&&selected.encounter.policy==='POINT_DEFENSE'?selected.encounter.defensePoint:selected.tactics.policy==='POINT_DEFENSE'?(selected.tactics.defenseAnchor?gridToWorld(selected.tactics.defenseAnchor):selected.destination):null;defenseMarker.visible=!!defense&&showGuides;if(defense)defenseMarker.position.copy(defense);
   const path=patrolEdit?.fleetId===selected.id?patrolEdit.points:selected.movement.policy==='PATROL'?selected.movement.patrolPoints:[];
   const points=path.map(p=>patrolPointWorld(p)),active=patrolEdit?0:selected.movement.activeIndex,ordered=points.length?[...points.slice(active),...points.slice(0,active)]:[];lineGeometry.setFromPoints(ordered.length?[selected.anchor,...ordered,ordered[0]]:[selected.anchor,selected.destination]);
@@ -445,26 +310,19 @@ for(const axis of ['x','y','z'])$(`spacing-${axis}`).addEventListener('change',e
 function syncUI(){
   const prep=state.phase==='PREPARATION',editing=!!draft||!!patrolEdit;document.body.classList.toggle('running',state.phase==='RUNNING');refreshFleetTabs();
   $('pick-position').disabled=!prep||editing;for(const [id,policy] of [['policy-move','MOVE'],['policy-patrol','PATROL']]){const button=$(id),checked=selected.movement.policy===policy;button.disabled=!prep||editing;button.setAttribute('aria-checked',String(checked));button.tabIndex=checked?0:-1;}
-  for(const button of document.querySelectorAll('[data-tactic]')){const insufficient=button.dataset.tactic==='ENCIRCLE'&&selected.ships.filter(s=>s.alive).length<2,checked=button.dataset.tactic===selected.tactics.policy;button.disabled=!prep||editing||insufficient;button.title=insufficient?'생존 함선 2척 이상 필요':tacticDescriptions[button.dataset.tactic];button.setAttribute('aria-checked',String(checked));button.tabIndex=checked?0:-1;}
-  $('tactic-description').textContent=tacticDescriptions[selected.tactics.policy];$('tactic-info').textContent=selected.tactics.policy==='ENCIRCLE'&&selected.ships.filter(s=>s.alive).length<2?'생존 함선 2척 이상 필요':'';
+  for(const button of document.querySelectorAll('[data-tactic]')){const checked=button.dataset.tactic===selected.tactics.policy;button.disabled=!prep||editing;button.title=tacticDescriptions[button.dataset.tactic];button.setAttribute('aria-checked',String(checked));button.tabIndex=checked?0:-1;}
+  $('tactic-description').textContent=tacticDescriptions[selected.tactics.policy];$('tactic-info').textContent='';
   for(const group of document.querySelectorAll('[role=radiogroup]'))if(!group.querySelector('[role=radio]:not(:disabled)[tabindex="0"]')){const first=group.querySelector('[role=radio]:not(:disabled)');if(first)first.tabIndex=0;}
   $('defense-controls').hidden=selected.tactics.policy!=='POINT_DEFENSE';$('pick-defense').disabled=!prep||editing;$('defense-auto').disabled=!prep||editing||!selected.tactics.defenseAnchor;$('defense-info').textContent=selected.tactics.defenseAnchor?'사용자 지정 거점':'자동 지정 · 현재 이동 목표';
   for(const button of document.querySelectorAll('[data-camera-plane]'))button.disabled=editing;
   $('toggle-economy').disabled=editing;$('toggle-fleet').disabled=editing;$('start').disabled=!prep||editing||!prepareUnitView||!state.assetsAvailable||!!state.result||!!balanceError;$('start').title=balanceError?'밸런스 데이터: '+balanceError:!prepareUnitView?'함선 모델을 불러오는 중입니다.':!state.assetsAvailable?'사용 가능한 함선 모델을 확인하세요.':'';$('pause').disabled=state.phase!=='RUNNING';$('start').hidden=state.phase==='RUNNING';$('pause').hidden=state.phase!=='RUNNING';$('start').textContent=editing?'편집 중':state.time===0?'전투 시작':state.remaining<=0?'다음 전투':'전투 재개';
   refreshInputs();refreshShips();refreshEconomy();refreshPatrolEditor();updateStatus();
 }
-function updateStatus(){
-  $('economy-balance').textContent='보유 '+state.scores.ALLY+'점 / 승리 목표 '+SCORE_CONFIG.victory+'점';$('purchase-info').textContent='가격 '+ECONOMY_CONFIG.price+'점 · 구매 후 '+Math.max(0,state.scores.ALLY-ECONOMY_CONFIG.price)+'점';
-  $('ally-score').textContent=state.scores.ALLY;$('enemy-score').textContent=state.scores.ENEMY;$('victory-score').textContent=SCORE_CONFIG.victory;
-  $('hud').textContent=state.phase==='RESULT'?(state.result==='DRAW'?'무승부':state.result==='ALLY'?'아군 승리':'적군 승리'):state.phase==='RUNNING'?'전투 중 · '+state.remaining.toFixed(1)+'초':draft?'위치 지정 중':patrolEdit?'순찰 경로 편집 중':state.time===0?'전투 준비':manualPaused?'일시정지':'다음 전투 준비';
-  $('fleet-title').textContent=selected.id+' 함대 · '+selected.ships.filter(s=>s.alive).length+'척';const levels=Object.values(selected.spacingLevels),spacing=levels.every(x=>x===levels[0])?({tight:'좁게',normal:'보통',wide:'넓게'}[levels[0]]):'개별';$('command-summary').textContent=(selected.movement.policy==='PATROL'?'순찰':'목적지 이동')+' · '+tacticLabels[selected.tactics.policy]+' · '+spacing+' 간격';
-  const e=selected.encounter;let activity=selected.pathBlockId?'대치 사격 중':selected.movement.policy==='PATROL'?'순찰 중':'이동 중';if(e.active){activity=e.breakthrough?({APPROACH:'관통 진입 중',TRANSIT:'관통 중',REAR_ENGAGE:'후방 교전 중'}[e.breakthrough.phase]):e.groups?'포위 전개 중 · '+e.groups.length+'방향':e.policy==='LINE'?(selected.safetyStop?'대치 사격 중':'적 함대 접근 중'):e.arrived?'거점 방어 중':'거점 이동 중';activity+=' · 적 '+e.enemyId+' 함대';}else if(e.reason)activity=e.reason;else if(selected.arrived)activity='목적지 도착';if(state.phase==='PREPARATION')activity=state.time===0?'준비 중':(manualPaused?'일시정지 · ':'준비 중 · ')+activity;$('fleet-info').textContent=activity;$('fleet-info').hidden=state.phase==='PREPARATION'&&!e.active&&!e.reason;
-  if($('debug-menu').open)$('debug-target').textContent='이동 목표 '+selected.destination.toArray().map(x=>x.toFixed(1)).join(', ')+' · '+(e.policy||'MOVEMENT');
-}
+const {updateEconomySummary,updateStatus}=createStatusUI({$,state,SCORE_CONFIG,ECONOMY_CONFIG,tacticLabels,getSlots:slots,getContext:()=>({selected,draft,patrolEdit,manualPaused})});
 function refreshEconomy(){
   const prep=state.phase==='PREPARATION'&&!draft&&!patrolEdit;$('buy-ship').disabled=!prep||state.scores.ALLY<ECONOMY_CONFIG.price||!prepareUnitView||!state.assetsAvailable;
   $('buy-ship').title=!state.assetsAvailable?'사용 가능한 함선 모델이 없습니다.':state.scores.ALLY<ECONOMY_CONFIG.price?'점수가 부족합니다.':'';
-  $('economy-balance').textContent='보유 '+state.scores.ALLY+'점 / 승리 목표 '+SCORE_CONFIG.victory+'점';$('purchase-info').textContent='가격 '+ECONOMY_CONFIG.price+'점 · 구매 후 '+Math.max(0,state.scores.ALLY-ECONOMY_CONFIG.price)+'점';
+  updateEconomySummary();
   const owned=state.reserves.filter(r=>r.team==='ALLY'&&(r.status==='OWNED'||r.status==='ASSIGNED')),unassigned=owned.filter(r=>r.status==='OWNED').length,waiting=owned.length-unassigned;$('reserve-count').textContent=owned.length?'· '+owned.length:'';$('reserve-status').textContent=owned.length?'미배정 '+unassigned+'척 · 투입 대기 '+waiting+'척':'보유한 예비 함선이 없습니다.';
   const list=$('reserves');list.replaceChildren();for(const reserve of owned){const item=document.createElement('div');item.className='reserve-item';item.draggable=prep;item.addEventListener('dragstart',e=>{draggedReserve=reserve.id;e.dataTransfer.setData('text/plain',reserve.id);});item.addEventListener('dragend',()=>draggedReserve=null);const label=document.createElement('span');label.textContent=reserve.id+' · '+(reserve.status==='OWNED'?'미배정 · 투입되지 않음':reserve.fleetId==='NEW'?'새 함대 · 투입 대기':reserve.fleetId+' 함대 · 투입 대기')+(reserve.reason?' · '+reserve.reason:'');item.append(label);const assignments=document.createElement('div');assignments.className='assignments';item.append(assignments);
     const bind=(text,target)=>{const button=document.createElement('button');button.textContent=text;button.disabled=!prep;button.setAttribute('aria-pressed',String(reserve.fleetId===target&&reserve.status==='ASSIGNED'));button.addEventListener('click',()=>{const result=assignReserve(state,'ALLY',reserve.id,target);setError(result.ok?'':result.reason);refreshEconomy();});assignments.append(button);};for(const f of friendly)bind(f.id+' 함대',f.id);bind('새 함대','NEW');if(reserve.status==='ASSIGNED')bind('배정 취소',null);list.append(item);
@@ -481,67 +339,35 @@ $('pause').addEventListener('click',()=>{if(state.phase==='RUNNING'){manualPause
 function resizeViewport(){const {width,height}=viewportSize();camera.aspect=width/height;camera.updateProjectionMatrix();renderer.setSize(width,height);resizePickingCamera();}
 new ResizeObserver(resizeViewport).observe(viewport);window.addEventListener('resize',resizeViewport);resizeViewport();
 try{
-  const assetUrl=`${assetRoot}${encodeURIComponent(balance?.ship.model_path||'Light_cruiser_01_rigged.fbx')}`;const model=await new FBXLoader(manager).loadAsync(assetUrl);
-  const [report,assetBytes]=await Promise.all([fetch('../rigging-test/rig-analysis.json').then(r=>{if(!r.ok)throw Error('리깅 분석 자료 없음');return r.json();}),fetch(assetUrl).then(r=>{if(!r.ok)throw Error('FBX 해시 확인 실패');return r.arrayBuffer();})]);
-  const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',assetBytes)),x=>x.toString(16).padStart(2,'0')).join('');
-  const neutralConfirmed=report.models.some(m=>m.file==='Light_cruiser_01_rigged.fbx'&&m.sha256===digest);
-  const box=new THREE.Box3().setFromObject(model),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3()),max=Math.max(size.x,size.y,size.z);
-  if(!Number.isFinite(max)||max<=0)throw new Error('FBX의 크기가 올바르지 않습니다.');
-  model.position.sub(center);
-  const corrected=new THREE.Group();corrected.add(model);corrected.scale.setScalar(2.2/max);corrected.rotation.y=Math.PI/2;
-  const blueTexture=await new THREE.TextureLoader().loadAsync(assetRoot+'Texture/T_Spase_blue.png');blueTexture.colorSpace=THREE.SRGBColorSpace;const blueMaterials=new Map();
-  function allyMaterial(material){if(blueMaterials.has(material))return blueMaterials.get(material);const copy=material.clone();if(material.map){const map=blueTexture.clone();for(const key of ['wrapS','wrapT','flipY','channel','rotation'])map[key]=material.map[key];map.offset.copy(material.map.offset);map.repeat.copy(material.map.repeat);map.center.copy(material.map.center);map.needsUpdate=true;copy.map=map;}copy.needsUpdate=true;blueMaterials.set(material,copy);return copy;}
-  state.spawnRadius=size.length()/max*1.1;
-  prepareUnitView=(s,options={})=>{
-    s.collisionRadius=state.spawnRadius;const view=new THREE.Group();view.userData.shipId=s.id;view.add(corrected.clone(true));if((state.fleets.find(f=>f.id===s.fleetId)?.team||state.reserves.find(r=>r.id===s.id)?.team)==='ALLY')view.traverse(node=>{if(node.isMesh&&node.material)node.material=Array.isArray(node.material)?node.material.map(allyMaterial):allyMaterial(node.material);});view.position.copy(s.position);view.quaternion.copy(s.rotation);view.updateWorldMatrix(true,true);
-    const rig=discoverRig(view),weapons=initializeWeapons(view,rig);if(balance){const found=new Set();for(const weapon of weapons){const m=/^LC01_(W\d{2})$/.exec(weapon.key),mount=m&&balance.mounts.get(m[1]);if(!mount||found.has(m[1])||mount.muzzles!==weapon.muzzleNodes.length||(weapon.pivot?'turret':'fixed')!==mount.kind)throw Error('LC01 모델과 CSV의 포 불일치: '+weapon.key);found.add(m[1]);weapon.balance=mount.type;}if(found.size!==balance.mounts.size)throw Error('LC01 CSV 포 누락');}s.weapons=weapons.map((weapon,i)=>({id:s.id+':'+i,shipId:s.id,yaw:weapon.yaw,pitch:weapon.pitch,cooldown:0,cooldownSec:weapon.balance?.cooldown,range:weapon.balance?.range,targetId:null}));for(let i=0;i<weapons.length;i++){const weapon=weapons[i];weapon.combatState=s.weapons[i];weapon.muzzleChains=weapon.muzzleNodes.map(muzzle=>captureMuzzleChain(view,weapon,muzzle));}
-    const safety=new GameRigSafety(view,weapons);safety.confirmedNeutral=neutralConfirmed;if(neutralConfirmed)safety.captureConfirmedNeutralContacts();const entry={view,weapons,engines:rig.engines,safety,assetHash:digest,safe:neutralConfirmed&&rig.muzzleCount>0,reason:neutralConfirmed?'':'모델 해시가 일치하지 않아 사격 보류'};
-    if(!entry.safe&&!options.allowUnsafe){safety.dispose();throw Error('검증된 리깅 모델이 아닙니다.');}
-    return {commit(){scene.add(view);views.set(s.id,view);rigs.set(s.id,entry);},rollback(){scene.remove(view);views.delete(s.id);rigs.delete(s.id);safety.dispose();}};
-  };
+  const prepared=await loadShipViews({state,balance,scene,views,rigs});
+  prepareUnitView=prepared.prepareUnitView;const neutralConfirmed=prepared.neutralConfirmed;
   for(const f of state.fleets)for(const s of f.ships)prepareUnitView(s,{allowUnsafe:true}).commit();
   state.assetsAvailable=neutralConfirmed&&[...rigs.values()].every(r=>r.safe)&&!balanceError;if(balanceError)setError('밸런스 데이터: '+balanceError);
   state.combat=battleCombat;if(!neutralConfirmed)setError('검증된 리깅 모델과 일치하지 않아 사격을 보류합니다.');
+  initialization.phase=state.assetsAvailable?'READY':'ERROR';if(!state.assetsAvailable&&!initialization.error)initialization.error=neutralConfirmed?'함선 또는 밸런스 데이터 오류':'모델 해시 불일치';
   refreshInputs();syncUI();updatePreview();
-}catch(e){state.assetsAvailable=false;setError('함선 준비 오류: '+e.message);console.error(e);}
-// Visual-only effects. Combat remains authoritative in simulation.js.
-const boltSpecs={BOLT01:{width:.030,length:.25,duration:.65},BOLT02:{width:.038,length:.35,duration:.85},BOLT03:{width:.053,length:.50,duration:1.10},BOLT04:{width:.075,length:.70,duration:1.40}};
-const fxStats={requested:0,accepted:0,rendered:0,expiredBeforeRender:0,droppedCapacity:0,invalid:0,peakActive:0};
-const activeBolts=[], engineEffects=new Map(), FX_MAX=4096;
-const boltPlane=new THREE.PlaneGeometry(1,1);
-function boltShader(color){return new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{rim:{value:new THREE.Color(color)}},vertexShader:'varying vec2 vUv; void main(){vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.0);}',fragmentShader:'varying vec2 vUv; uniform vec3 rim; void main(){float x=abs(vUv.x*2.0-1.0); float tip=1.0-smoothstep(0.72,1.0,abs(vUv.y*2.0-1.0)); float a=(1.0-smoothstep(0.75,1.0,x))*tip; vec3 c=mix(vec3(1.0),rim,smoothstep(0.12,0.8,x)); gl_FragColor=vec4(c,a);}',});}
-const fxMatrix=new THREE.Matrix4(), fxBasis=new THREE.Matrix4(), fxQuat=new THREE.Quaternion(), fxScale=new THREE.Vector3(), fxPos=new THREE.Vector3(), fxDir=new THREE.Vector3(), fxRight=new THREE.Vector3(), fxNormal=new THREE.Vector3(), fxCamera=new THREE.Vector3(), fxY=new THREE.Vector3(0,1,0), fxZ=new THREE.Vector3(0,0,1), fxNodeQ=new THREE.Quaternion();
-function makeBatch(geometry,material,initial=32){const batch={geometry,material,capacity:0,mesh:null,count:0};batch.ensure=n=>{if(n<=batch.capacity)return true;let cap=Math.max(initial,batch.capacity||0);while(cap<n&&cap<FX_MAX)cap=Math.min(FX_MAX,cap*2);if(cap<n)return false;const next=new THREE.InstancedMesh(geometry,material,cap);next.instanceMatrix.setUsage(THREE.DynamicDrawUsage);next.frustumCulled=false;next.count=0;if(batch.mesh){const savedMatrix=new THREE.Matrix4();for(let i=0;i<batch.count;i++){batch.mesh.getMatrixAt(i,savedMatrix);next.setMatrixAt(i,savedMatrix);}scene.remove(batch.mesh);batch.mesh.dispose();}scene.add(next);batch.mesh=next;batch.capacity=cap;return true;};batch.begin=()=>{batch.count=0;};batch.add=matrix=>{if(!batch.ensure(batch.count+1))return false;batch.mesh.setMatrixAt(batch.count++,matrix);return true;};batch.end=()=>{if(batch.mesh){batch.mesh.count=batch.count;batch.mesh.instanceMatrix.needsUpdate=true;}};return batch;}
-const boltBatches={ALLY:makeBatch(boltPlane,boltShader(0x218cff)),ENEMY:makeBatch(boltPlane,boltShader(0xff3434))};
-const ringGeometry=new THREE.RingGeometry(.037,.052,16),ringMaterial=new THREE.MeshBasicMaterial({color:0x68cfff,transparent:true,opacity:.65,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending});
-const idleFlameGeometry=new THREE.ConeGeometry(.04,1,12,1,false),flameGeometry=new THREE.CylinderGeometry(.015,.04,1,8,1,true),flameMaterial=new THREE.MeshBasicMaterial({color:0x78cfff,transparent:true,opacity:.55,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
-const ringBatch=makeBatch(ringGeometry,ringMaterial),flameBatch=makeBatch(flameGeometry,flameMaterial),idleFlameBatch=makeBatch(idleFlameGeometry,flameMaterial),trailMaterial=new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{trailColor:{value:new THREE.Color(0x4caad1)}},vertexShader:'attribute float trailAlpha; varying float vTrailAlpha; void main(){vTrailAlpha=trailAlpha;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',fragmentShader:'uniform vec3 trailColor; varying float vTrailAlpha; void main(){gl_FragColor=vec4(trailColor,vTrailAlpha*0.42);}'});
-function engineStage(previous,r){if(!Number.isFinite(r)||r<=.02)return 0;if(previous===3&&r>=.62)return 3;if(previous>=2&&r>=.29)return r>.70?3:2;return r>.70?3:r>.37?2:1;}
-function createEngineEffect(node){const geometry=new THREE.BufferGeometry(),positions=new Float32Array(64*3),alphas=new Float32Array(64);geometry.setAttribute('position',new THREE.BufferAttribute(positions,3).setUsage(THREE.DynamicDrawUsage));geometry.setAttribute('trailAlpha',new THREE.BufferAttribute(alphas,1).setUsage(THREE.DynamicDrawUsage));geometry.setDrawRange(0,0);const line=new THREE.Line(geometry,trailMaterial);line.frustumCulled=false;scene.add(line);return {node,stage:0,level:0,ringWeights:[0,0,0],points:[],tip:new THREE.Vector3(),line,positions,alphas,lastSample:-Infinity,alive:true};}
-function sampleEngineEffects(){const now=state.time, seen=new Set();for(const fleet of state.fleets)for(const ship of fleet.ships){const rig=rigs.get(ship.id);if(!rig)continue;rig.view.position.copy(ship.position);rig.view.quaternion.copy(ship.rotation);rig.view.updateWorldMatrix(true,true);for(const node of rig.engines){const key=ship.id+':'+node.name;seen.add(key);let e=engineEffects.get(key);if(!e){e=createEngineEffect(node);engineEffects.set(key,e);}e.node=node;e.alive=ship.alive;const speed=ship.forwardSpeed;const r=ship.alive&&Number.isFinite(speed)&&speed>0?Math.min(1,ship.velocity.length()/speed):0;e.stage=engineStage(e.stage,r);e.level+=(r-e.level)*Math.min(1,CONFIG.dt*8);for(let j=0;j<3;j++)e.ringWeights[j]+=((j<e.stage?1:0)-e.ringWeights[j])*Math.min(1,CONFIG.dt*12);node.getWorldPosition(fxPos);node.getWorldQuaternion(fxNodeQ);fxDir.copy(fxZ).applyQuaternion(fxNodeQ).normalize();fxPos.addScaledVector(fxDir,.12+e.level*.21);e.tip.copy(fxPos);const last=e.points[e.points.length-1];if(last&&last.p.distanceToSquared(fxPos)>16)e.points.length=0;if(e.stage>=2&&(!last||last.p.distanceToSquared(fxPos)>.0025||now-e.lastSample>=.12)){e.points.push({p:fxPos.clone(),time:now});e.lastSample=now;}const life=e.stage===3?1.3:.65;while(e.points.length&&(now-e.points[0].time>life||e.points.length>63))e.points.shift();if(e.stage>=2){let length=0,cut=0;const maxLength=e.stage===3?3.3:1.65;for(let j=e.points.length-1;j>0;j--){length+=e.points[j].p.distanceTo(e.points[j-1].p);if(length>maxLength){cut=j;break;}}if(cut)e.points.splice(0,cut);}}}
-for(const [key,e] of engineEffects){if(!seen.has(key)){e.alive=false;e.stage=0;while(e.points.length&&now-e.points[0].time>.65)e.points.shift();}if(!e.alive&&!e.points.length){scene.remove(e.line);e.line.geometry.dispose();engineEffects.delete(key);continue;}const arr=e.positions,life=e.stage===3?1.3:.65,hasTip=e.alive&&e.stage>=2&&e.points.length>0,count=e.points.length+(hasTip?1:0);for(let i=0;i<e.points.length;i++){const point=e.points[i];point.p.toArray(arr,i*3);const along=i/Math.max(1,count-1),age=Math.max(0,now-point.time);e.alphas[i]=along*Math.max(0,1-age/life);}if(hasTip){e.tip.toArray(arr,e.points.length*3);e.alphas[e.points.length]=1;}e.line.geometry.setDrawRange(0,count);e.line.geometry.attributes.position.needsUpdate=true;e.line.geometry.attributes.trailAlpha.needsUpdate=true;}}
-function updateVisualEffects(){if(!engineEffects.size&&rigs.size)sampleEngineEffects();const queue=state.fxRequests||[];for(const req of queue){fxStats.requested++;const spec=boltSpecs[req.type],valid=spec&&(req.team==='ALLY'||req.team==='ENEMY')&&req.origin.toArray().every(Number.isFinite)&&req.impact.toArray().every(Number.isFinite)&&req.origin.distanceToSquared(req.impact)>1e-12;if(!valid){fxStats.invalid++;continue;}if(state.time-req.tickTime>=spec.duration){fxStats.expiredBeforeRender++;continue;}if(activeBolts.length>=FX_MAX){fxStats.droppedCapacity++;continue;}activeBolts.push({...req,spec});fxStats.accepted++;}queue.length=0;fxStats.peakActive=Math.max(fxStats.peakActive,activeBolts.length);for(const b of Object.values(boltBatches))b.begin();activeCamera.getWorldPosition(fxCamera);for(let i=activeBolts.length-1;i>=0;i--){const a=activeBolts[i],u=Math.max(0,(state.time-a.tickTime)/a.spec.duration);if(u>=1){activeBolts.splice(i,1);continue;}fxDir.subVectors(a.impact,a.origin);const distance=fxDir.length();fxDir.multiplyScalar(1/distance);const front=u*distance,back=Math.max(0,front-a.spec.length),len=front-back;if(len<=1e-7)continue;fxPos.copy(a.origin).addScaledVector(fxDir,(front+back)*.5);fxNormal.subVectors(fxCamera,fxPos).normalize();fxRight.crossVectors(fxDir,fxNormal);if(fxRight.lengthSq()<1e-8)fxRight.set(1,0,0).applyQuaternion(activeCamera.quaternion);fxRight.normalize();fxNormal.crossVectors(fxRight,fxDir).normalize();fxBasis.makeBasis(fxRight,fxDir,fxNormal);fxQuat.setFromRotationMatrix(fxBasis);fxScale.set(a.spec.width,len,1);fxMatrix.compose(fxPos,fxQuat,fxScale);if(boltBatches[a.team].add(fxMatrix))fxStats.rendered++;else fxStats.droppedCapacity++;}for(const b of Object.values(boltBatches))b.end();
-ringBatch.begin();flameBatch.begin();idleFlameBatch.begin();for(const e of engineEffects.values()){if(!e.alive)continue;e.node.getWorldPosition(fxPos);e.node.getWorldQuaternion(fxNodeQ);fxDir.copy(fxZ).applyQuaternion(fxNodeQ).normalize();const length=.12+e.level*.21;fxQuat.setFromUnitVectors(fxY,fxDir);fxScale.set(1,length,1);fxMatrix.compose(fxPos.clone().addScaledVector(fxDir,length*.5),fxQuat,fxScale);(e.stage===0?idleFlameBatch:flameBatch).add(fxMatrix);for(let i=0;i<3;i++){const w=e.ringWeights[i];if(w<.01)continue;fxMatrix.compose(fxPos.clone().addScaledVector(fxDir,.06+i*.065),fxNodeQ,fxScale.setScalar(Math.max(.01,w)));ringBatch.add(fxMatrix);}}ringBatch.end();flameBatch.end();idleFlameBatch.end();}
-window.addEventListener('pagehide',()=>{const materials=new Set();for(const batch of [...Object.values(boltBatches),ringBatch,flameBatch,idleFlameBatch]){if(batch.mesh){scene.remove(batch.mesh);batch.mesh.dispose();}materials.add(batch.material);}for(const material of materials)material.dispose();boltPlane.dispose();ringGeometry.dispose();flameGeometry.dispose();idleFlameGeometry.dispose();trailMaterial.dispose();for(const e of engineEffects.values())e.line.geometry.dispose();},{once:true});
-
+}catch(e){state.assetsAvailable=false;initialization.phase='ERROR';initialization.error=e.message;setError('함선 준비 오류: '+e.message);console.error(e);refreshInputs();syncUI();}
+const {sampleEngineEffects,updateVisualEffects,updateRays}=createEffects({state,scene,rigs,CONFIG,getActiveCamera:()=>activeCamera});
 let last=null,acc=0,lastPhase=state.phase,lastFleetStatus='';
 const renderSize=new THREE.Vector2();
 renderer.setAnimationLoop(ms=>{
   const viewSize=viewportSize();renderer.getSize(renderSize);if(renderSize.x!==viewSize.width||renderSize.y!==viewSize.height)resizeViewport();
-  if(last===null)last=ms;const elapsed=Math.min((ms-last)/1000,CONFIG.maxFrame);last=ms;
+  if(last===null)last=ms;const rawElapsed=Math.max(0,(ms-last)/1000),elapsed=Math.min(rawElapsed,CONFIG.maxFrame);last=ms;
+  const measuredFrame=state.phase==='RUNNING'&&lastPhase==='RUNNING';
+  if(state.profile&&measuredFrame){const p=state.profile;p.wallMs+=rawElapsed*1000;p.cappedMs+=(rawElapsed-elapsed)*1000;p.frameIntervals.push(rawElapsed*1000);if(p.frameIntervals.length>10000)p.frameIntervals.shift();if((p.frames+1)%60===0){const sorted=[...p.frameIntervals].sort((a,b)=>a-b),at=q=>sorted[Math.max(0,Math.ceil(q*sorted.length)-1)];p.frameSummary={p50:at(.5),p95:at(.95),p99:at(.99),samples:sorted.length};}}
   if(state.phase==='RUNNING'){
-    acc+=elapsed;let steps=0;while(acc>=CONFIG.dt&&steps<CONFIG.maxSteps&&state.phase==='RUNNING'){step(state);sampleEngineEffects();acc-=CONFIG.dt;steps++;}
-    if(steps===CONFIG.maxSteps&&acc>=CONFIG.dt)acc=0;
+    acc+=elapsed;let steps=0;while(acc>=CONFIG.dt&&steps<CONFIG.maxSteps&&state.phase==='RUNNING'){step(state);const effectsStart=state.profile?performance.now():null;sampleEngineEffects();if(effectsStart!==null)state.profile.ms.engineEffects=(state.profile.ms.engineEffects||0)+performance.now()-effectsStart;acc-=CONFIG.dt;steps++;}
+    if(steps===CONFIG.maxSteps&&acc>=CONFIG.dt){if(state.profile)state.profile.droppedStepMs+=acc*1000;acc=0;}
   }else acc=0;
   if(lastPhase!==state.phase){lastPhase=state.phase;syncUI();}
   const fleetStatus=friendly.flatMap(f=>f.ships.map(s=>s.id+':'+s.hp+':'+s.alive)).join('|');if(fleetStatus!==lastFleetStatus&&!draggedShip&&!shipMode){lastFleetStatus=fleetStatus;refreshFleetTabs();refreshShips();}
   updateStatus();
   for(const f of state.fleets)for(const s of f.ships){const view=views.get(s.id);if(view){view.position.copy(s.position);view.quaternion.copy(s.rotation);view.visible=s.alive;}}
-  updateVisualEffects();
-  const activeRays=new Set(state.rayEffects.map(p=>p.id));for(const [id,line] of rayViews)if(!activeRays.has(id)){scene.remove(line);line.geometry.dispose();rayViews.delete(id);}for(const ray of state.rayEffects){let line=rayViews.get(ray.id);if(!line){line=new THREE.Line(new THREE.BufferGeometry(),shotMaterial);scene.add(line);rayViews.set(ray.id,line);}line.geometry.setFromPoints([ray.origin,ray.position]);}
+  const visualStart=state.profile?performance.now():null;updateVisualEffects();
+  updateRays();if(visualStart!==null&&measuredFrame){state.profile.ms.visualEffects=(state.profile.ms.visualEffects||0)+performance.now()-visualStart;state.profile.frames++;}
   updatePreview();
   selectedIndicator.position.copy(selected.anchor);
   selectedIndicator.quaternion.copy(activeCamera.quaternion);
   // Status text is updated without replacing interactive controls.
-  if(draft)movePicking(elapsed);else{orbit.update();moveCamera(elapsed);}$('zoom-debug').textContent=draft?'입력 줌 '+pickingCamera.zoom.toFixed(2)+'×':'카메라 거리 '+camera.position.distanceTo(orbit.target).toFixed(1);renderer.render(scene,activeCamera);drawMinimap();
+  if(draft)movePicking(elapsed);else{orbit.update();moveCamera(elapsed);}$('zoom-debug').textContent=draft?'입력 줌 '+pickingCamera.zoom.toFixed(2)+'×':'카메라 거리 '+camera.position.distanceTo(orbit.target).toFixed(1);const renderStart=state.profile&&measuredFrame?performance.now():null;renderer.render(scene,activeCamera);drawMinimap();if(renderStart!==null)state.profile.ms.renderSubmit=(state.profile.ms.renderSubmit||0)+performance.now()-renderStart;
 });

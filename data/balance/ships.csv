@@ -1,11 +1,11 @@
-﻿ship_id,display_name,model_path,max_hp,max_shield,forward_speed,price,enabled
-D01,구축함 01,Destroyer_01_rigged.fbx,,,,,FALSE
-D02,구축함 02,Destroyer_02_rigged.fbx,,,,,FALSE
-D03,구축함 03,Destroyer_03_rigged.fbx,,,,,FALSE
-D04,구축함 04,Destroyer_04_rigged.fbx,,,,,FALSE
-D05,구축함 05,Destroyer_05_rigged.fbx,,,,,FALSE
-LC01,경순양함 01,Light_cruiser_01_rigged.fbx,500,500,5,30,TRUE
-LC02,경순양함 02,Light_cruiser_02_rigged.fbx,,,,,FALSE
-LC03,경순양함 03,Light_cruiser_03_rigged.fbx,,,,,FALSE
-LC04,경순양함 04,Light_cruiser_04_rigged.fbx,,,,,FALSE
-LC05,경순양함 05,Light_cruiser_05_rigged.fbx,,,,,FALSE
+﻿ship_id,display_name,model_path,max_hp,max_shield,forward_speed,price,enabled,max_reverse_speed,max_vertical_speed,forward_acceleration,reverse_acceleration,brake_deceleration,vertical_acceleration,max_yaw_rate,max_pitch_rate,max_roll_rate,max_pitch_angle,max_roll_angle,attitude_recovery_rate,stationary_turn_ratio
+D01,구축함 01,Destroyer_01_rigged.fbx,,,,,FALSE,,,,,,,,,,,,,
+D02,구축함 02,Destroyer_02_rigged.fbx,,,,,FALSE,,,,,,,,,,,,,
+D03,구축함 03,Destroyer_03_rigged.fbx,,,,,FALSE,,,,,,,,,,,,,
+D04,구축함 04,Destroyer_04_rigged.fbx,,,,,FALSE,,,,,,,,,,,,,
+D05,구축함 05,Destroyer_05_rigged.fbx,,,,,FALSE,,,,,,,,,,,,,
+LC01,경순양함 01,Light_cruiser_01_rigged.fbx,500,500,5,30,TRUE,0.75,0.5,4,1.5,4,1,0.8,0.5,0.5,25,15,0.5,0.3
+LC02,경순양함 02,Light_cruiser_02_rigged.fbx,,,,,FALSE,,,,,,,,,,,,,
+LC03,경순양함 03,Light_cruiser_03_rigged.fbx,,,,,FALSE,,,,,,,,,,,,,
+LC04,경순양함 04,Light_cruiser_04_rigged.fbx,,,,,FALSE,,,,,,,,,,,,,
+LC05,경순양함 05,Light_cruiser_05_rigged.fbx,,,,,FALSE,,,,,,,,,,,,,

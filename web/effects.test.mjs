@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {runtime} from '../rigging-test/node-runtime.mjs';
+const rt=await runtime(),T=rt.THREE,source=await readFile(new URL('./effects.js',import.meta.url),'utf8'),{createEffects}=await rt.module(source);
+let handler;window.addEventListener=(type,fn)=>{if(type==='pagehide')handler=fn;};
+const scene=new T.Scene(),view=new T.Group(),node=new T.Object3D();node.name='engine';view.add(node);scene.add(view);
+const ship={id:'ship',alive:true,position:new T.Vector3(),rotation:new T.Quaternion(),velocity:new T.Vector3(0,0,5),forwardSpeed:5},state={time:0,fleets:[{ships:[ship]}],fxRequests:[],rayEffects:[]},rigs=new Map([['ship',{view,engines:[node]}]]),camera=new T.PerspectiveCamera(),fx=createEffects({state,scene,rigs,CONFIG:{dt:1/60},getActiveCamera:()=>camera});
+fx.sampleEngineEffects();const trail=scene.children.find(x=>x.type==='Line');assert.ok(trail);let disposed=0;trail.geometry.addEventListener('dispose',()=>disposed++);
+handler({persisted:true});assert.equal(disposed,0);assert.ok(scene.children.includes(trail));
+ship.alive=false;state.time=2;fx.sampleEngineEffects();assert.equal(disposed,1);assert.ok(!scene.children.includes(trail));
+state.rayEffects=[{id:'ray',origin:new T.Vector3(),position:new T.Vector3(0,0,1)}];fx.updateRays();const ray=scene.children.find(x=>x.type==='Line');assert.ok(ray);let rayDisposed=0;ray.geometry.addEventListener('dispose',()=>rayDisposed++);handler({persisted:false});assert.equal(rayDisposed,1);assert.ok(!scene.children.includes(ray));
+console.log('PASS effect trail lifetime, bfcache preservation and page cleanup');
