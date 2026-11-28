@@ -74,7 +74,7 @@ export const FORMATION_CONFIG=Object.freeze({compactRatio:.7,minColumnRanks:4,mi
 export function effectiveSpacing(level,policy){const value=SPACING_LEVELS[level];if(!Number.isFinite(value))throw Error('함선 간격 단계가 올바르지 않습니다.');return value*(['BREAKTHROUGH','POINT_DEFENSE'].includes(policy)?FORMATION_CONFIG.compactRatio:1);}
 export function columnDimensions(n,levels){const gx=SPACING_LEVELS[levels.x],gy=SPACING_LEVELS[levels.y],gz=SPACING_LEVELS[levels.z];let x=1,y=1,best=[1,1];while(true){if(x===y)y++;else x++;const c=x*y;if(c>Math.floor(n/FORMATION_CONFIG.minColumnRanks))break;const ranks=Math.floor(n/c),width=(x-1)*gx,height=(y-1)*gy,length=(ranks-1)*gz;if(length>=FORMATION_CONFIG.minAspect*Math.max(width,height))best=[x,y];}return best;}
 function columnLayout(f){
-  const key=[f.tactics.revision,f.spacingLevels.x,f.spacingLevels.y,f.spacingLevels.z,...f.ships.map(s=>s.id)].join('|');
+  const key=[f.tactics.revision,f.spacingLevels.x,f.spacingLevels.y,f.spacingLevels.z,...f.ships.map(s=>s.id+':'+(s.collisionRadius??1.1))].join('|');
   if(f.columnLayout?.key!==key){
     const alive=f.ships.filter(s=>s.alive),[x,y]=columnDimensions(alive.length,f.spacingLevels),cells=[];
     for(let iy=0;iy<y;iy++)for(let ix=0;ix<x;ix++)cells.push({ix,iy,x:(ix-(x-1)/2)*SPACING_LEVELS[f.spacingLevels.x],y:(iy-(y-1)/2)*SPACING_LEVELS[f.spacingLevels.y]});
@@ -88,6 +88,12 @@ function columnLayout(f){
   const counts=new Map();for(const ship of f.ships)if(ship.alive){const slot=f.columnLayout.byId.get(ship.id);if(slot){const k=slot.ix+','+slot.iy;counts.set(k,(counts.get(k)||0)+1);}}
   for(const cell of f.columnLayout.cells){const members=f.ships.filter(s=>s.alive&&f.columnLayout.byId.get(s.id)?.ix===cell.ix&&f.columnLayout.byId.get(s.id)?.iy===cell.iy).sort((a,b)=>f.columnLayout.byId.get(a.id).rank-f.columnLayout.byId.get(b.id).rank||a.id.localeCompare(b.id));members.forEach((ship,rank)=>{f.columnLayout.byId.get(ship.id).rank=rank;});}
   f.columnLayout.maxRank=Math.max(0,...[...counts.values()].map(n=>n-1));
+  const scaleKey=f.ships.map(s=>s.id+':'+s.alive+':'+(s.collisionRadius??1.1)+':'+(f.columnLayout.byId.get(s.id)?.rank??'')).join('|');
+  if(f.columnLayout.scaleKey!==scaleKey){
+    let scale=1;const alive=f.ships.filter(s=>s.alive&&f.columnLayout.byId.has(s.id)),gap=SPACING_LEVELS[f.spacingLevels.z];
+    for(let i=0;i<alive.length;i++)for(let j=0;j<i;j++){const a=f.columnLayout.byId.get(alive[i].id),b=f.columnLayout.byId.get(alive[j].id),distance=Math.hypot(a.x-b.x,a.y-b.y,(a.rank-b.rank)*gap),needed=(alive[i].collisionRadius??1.1)+(alive[j].collisionRadius??1.1);if(distance>1e-9)scale=Math.max(scale,needed/distance);}
+    f.columnLayout.scale=scale;f.columnLayout.scaleKey=scaleKey;const [x,y]=[f.columnLayout.x,f.columnLayout.y];f.size.set((x-1)*SPACING_LEVELS[f.spacingLevels.x]*scale,(y-1)*SPACING_LEVELS[f.spacingLevels.y]*scale,f.columnLayout.maxRank*gap*scale);f.slotVelocityHistory=null;
+  }
   if(!f.ships.some(s=>s.alive&&s.id===f.columnLeaderId)){const candidates=f.ships.filter(s=>s.alive&&f.columnLayout.byId.has(s.id));candidates.sort((a,b)=>{const x=f.columnLayout.byId.get(a.id),y=f.columnLayout.byId.get(b.id);return x.rank-y.rank||(x.x*x.x+x.y*x.y)-(y.x*y.x+y.y*y.y)||a.id.localeCompare(b.id);});f.columnLeaderId=candidates[0]?.id??null;}
   return f.columnLayout;
 }
@@ -109,8 +115,8 @@ function rawSlotsInOrder(f){
   const n=f.ships.length;if(!n)return [];
   const policy=f.tactics.policy, spacing=effectiveSpacing(f.spacingLevels.x,policy), offsets=[];
   if(policy==='COLUMN'){
-    const gap=SPACING_LEVELS[f.spacingLevels.z],layout=columnLayout(f);
-    for(let i=0;i<n;i++){const s=layout.byId.get(f.ships[i].id);offsets.push(s?vec(s.x,s.y,(layout.maxRank/2-s.rank)*gap):vec());}
+    const layout=columnLayout(f),gap=SPACING_LEVELS[f.spacingLevels.z]*layout.scale;
+    for(let i=0;i<n;i++){const s=layout.byId.get(f.ships[i].id);offsets.push(s?vec(s.x*layout.scale,s.y*layout.scale,(layout.maxRank/2-s.rank)*gap):vec());}
   }else if(policy==='LINE'){
     return planarSlots(f,false).map(p=>p.applyQuaternion(f.rotation).add(f.anchor));
   }else if(policy==='BREAKTHROUGH'){
@@ -146,9 +152,10 @@ function assignSlots(f,points){
     const candidates=[];for(const ship of f.ships)if(ship.alive)for(let i=0;i<points.length;i++)candidates.push({ship,i,cost:ship.position.distanceToSquared(points[i])});
     candidates.sort((a,b)=>a.cost-b.cost||a.ship.id.localeCompare(b.ship.id)||a.i-b.i);
     const byId=new Map(),used=new Set();for(const candidate of candidates)if(!byId.has(candidate.ship.id)&&!used.has(candidate.i)){byId.set(candidate.ship.id,candidate.i);used.add(candidate.i);}
-    f.formationAssignment={key,byId};f.slotVelocityHistory=null;
+    let scale=1;const alive=f.ships.filter(ship=>ship.alive&&byId.has(ship.id));for(let i=0;i<alive.length;i++)for(let j=0;j<i;j++){const distance=points[byId.get(alive[i].id)].distanceTo(points[byId.get(alive[j].id)]),needed=(alive[i].collisionRadius??1.1)+(alive[j].collisionRadius??1.1);if(distance>1e-9)scale=Math.max(scale,needed/distance);}
+    f.formationAssignment={key,byId,scale};if(points.length){const local=points.map(p=>p.clone().sub(f.anchor).multiplyScalar(scale));f.size.copy(new THREE.Box3().setFromPoints(local).getSize(vec()));}f.slotVelocityHistory=null;
   }
-  return f.ships.map((ship,i)=>{const index=f.formationAssignment.byId.get(ship.id);const point=index===undefined?ship.position.clone():points[index].clone();if(f.tactics.policy==='LINE'&&f.encounter.active)point.add(f.encounter.lineOffsets?.get(ship.id)||vec());return point;});
+  return f.ships.map((ship,i)=>{const index=f.formationAssignment.byId.get(ship.id);const point=index===undefined?ship.position.clone():points[index].clone().sub(f.anchor).multiplyScalar(f.formationAssignment.scale).add(f.anchor);if(f.tactics.policy==='LINE'&&f.encounter.active)point.add(f.encounter.lineOffsets?.get(ship.id)||vec());return point;});
 }
 function rawSlots(f){const points=rawSlotsInOrder(f);return f.tactics.policy==='COLUMN'?points:assignSlots(f,points);}
 // Preserve the chosen center; try a bounded set of sphere orientations without clamping slots.
@@ -169,15 +176,15 @@ function chooseDefenseRotation(f,center){
 // The frame follows resolved travel, never the leader's stationary attitude.
 function updateColumnPath(f){
   if(f.tactics.policy!=='COLUMN'){f.columnPath=null;return;}
-  const layout=columnLayout(f),gap=SPACING_LEVELS[f.spacingLevels.z],leader=columnLeader(f);if(!leader){f.columnPath=null;return;}
+  const layout=columnLayout(f),gap=SPACING_LEVELS[f.spacingLevels.z]*layout.scale,leader=columnLeader(f);if(!leader){f.columnPath=null;return;}
   const offset=layout.byId.get(leader.id);if(!offset)return;
-  if(!f.columnPath){const frame=f.rotation.clone(),forward=vec(0,0,1).applyQuaternion(frame),forming=f.anchor.distanceTo(f.destination)<.8&&layout.maxRank>0,center=forming?f.anchor.clone().addScaledVector(forward,layout.maxRank*gap/2):leader.position.clone().sub(vec(offset.x,offset.y,0).applyQuaternion(frame)),points=[],frames=[];for(let i=0;i<Math.max(2,layout.maxRank+3);i++){points.push(center.clone().addScaledVector(forward,-gap*i));frames.push(frame.clone());}f.columnPath={points,frames,leaderId:leader.id,lastLeader:leader.position.clone(),frame,forming,previousRanks:new Map([...layout.byId].map(([id,slot])=>[id,slot.rank]))};if(forming){f.columnGoal=center.clone().add(vec(offset.x,offset.y,0).applyQuaternion(frame));f.columnGoalFinal=true;f.columnGoalBlocked=!insideBattlefield(f.columnGoal);}return;}
+  if(!f.columnPath){const frame=f.rotation.clone(),forward=vec(0,0,1).applyQuaternion(frame),forming=f.anchor.distanceTo(f.destination)<.8&&layout.maxRank>0,center=forming?f.anchor.clone().addScaledVector(forward,layout.maxRank*gap/2):leader.position.clone().sub(vec(offset.x*layout.scale,offset.y*layout.scale,0).applyQuaternion(frame)),points=[],frames=[];for(let i=0;i<Math.max(2,layout.maxRank+3);i++){points.push(center.clone().addScaledVector(forward,-gap*i));frames.push(frame.clone());}f.columnPath={points,frames,leaderId:leader.id,lastLeader:leader.position.clone(),frame,forming,previousRanks:new Map([...layout.byId].map(([id,slot])=>[id,slot.rank]))};if(forming){f.columnGoal=center.clone().add(vec(offset.x*layout.scale,offset.y*layout.scale,0).applyQuaternion(frame));f.columnGoalFinal=true;f.columnGoalBlocked=!insideBattlefield(f.columnGoal);}return;}
   const path=f.columnPath;
   if(path.leaderId!==leader.id){
     const expected=(path.previousRanks?.get(leader.id)??offset.rank)*gap,lo=Math.max(0,expected-gap),hi=expected+gap;let travelled=0,best=Infinity,bestIndex=0,bestPoint=path.points[0].clone(),bestFrame=path.frames[0].clone();
     for(let i=1;i<path.points.length;i++){
       const segment=new THREE.Line3(path.points[i-1],path.points[i]),length=segment.distance();if(travelled+length<lo){travelled+=length;continue;}if(travelled>hi)break;
-      const candidate=leader.position.clone().sub(vec(offset.x,offset.y,0).applyQuaternion(path.frames[i-1])),min=length?THREE.MathUtils.clamp((lo-travelled)/length,0,1):0,max=length?THREE.MathUtils.clamp((hi-travelled)/length,0,1):1,t=THREE.MathUtils.clamp(segment.closestPointToPointParameter(candidate,true),min,max),point=segment.at(t,vec()),distance=point.distanceToSquared(candidate);
+      const candidate=leader.position.clone().sub(vec(offset.x*layout.scale,offset.y*layout.scale,0).applyQuaternion(path.frames[i-1])),min=length?THREE.MathUtils.clamp((lo-travelled)/length,0,1):0,max=length?THREE.MathUtils.clamp((hi-travelled)/length,0,1):1,t=THREE.MathUtils.clamp(segment.closestPointToPointParameter(candidate,true),min,max),point=segment.at(t,vec()),distance=point.distanceToSquared(candidate);
       if(distance<best){best=distance;bestIndex=i;bestPoint=point;bestFrame=path.frames[i-1].clone().slerp(path.frames[i],t);}travelled+=length;
     }
     if(bestIndex){path.points=[bestPoint,...path.points.slice(bestIndex)];path.frames=[bestFrame,...path.frames.slice(bestIndex)];path.frame.copy(bestFrame);}path.leaderId=leader.id;path.lastLeader.copy(leader.position);path.previousRanks=new Map([...layout.byId].map(([id,slot])=>[id,slot.rank]));f.slotVelocityHistory=null;resetColumnRoute(f);return;
@@ -185,13 +192,13 @@ function updateColumnPath(f){
   path.previousRanks=new Map([...layout.byId].map(([id,slot])=>[id,slot.rank]));
   if(path.forming){path.lastLeader.copy(leader.position);if(leader.position.distanceTo(f.columnGoal)<.3)path.forming=false;return;}
   if(leader.yieldState){path.yielding=true;path.lastLeader.copy(leader.position);return;}
-  if(path.yielding){const center=leader.position.clone().sub(vec(offset.x,offset.y,0).applyQuaternion(path.frame));if(center.distanceToSquared(path.points[0])>1e-8){path.points.unshift(center);path.frames.unshift(path.frame.clone());}path.yielding=false;path.lastLeader.copy(leader.position);f.slotVelocityHistory=null;return;}
+  if(path.yielding){const center=leader.position.clone().sub(vec(offset.x*layout.scale,offset.y*layout.scale,0).applyQuaternion(path.frame));if(center.distanceToSquared(path.points[0])>1e-8){path.points.unshift(center);path.frames.unshift(path.frame.clone());}path.yielding=false;path.lastLeader.copy(leader.position);f.slotVelocityHistory=null;return;}
   const delta=leader.position.clone().sub(path.lastLeader);if(delta.lengthSq()<1e-10)return;
   const oldFrame=path.frame.clone(),oldForward=vec(0,0,1).applyQuaternion(oldFrame),nextForward=delta.clone().normalize(),angle=oldForward.angleTo(nextForward);
   // Only limit a bend when its estimated inner offset would reverse.
-  const width=Math.max(0,...layout.cells.map(cell=>Math.hypot(cell.x,cell.y))),limit=width>0?Math.min(Math.PI,delta.length()/width):Math.PI;
+  const width=Math.max(0,...layout.cells.map(cell=>Math.hypot(cell.x,cell.y)*layout.scale)),limit=width>0?Math.min(Math.PI,delta.length()/width):Math.PI;
   const rotation=new THREE.Quaternion().setFromUnitVectors(oldForward,nextForward);path.frame.premultiply(new THREE.Quaternion().identity().slerp(rotation,angle>limit?limit/angle:1)).normalize();
-  const oldOffset=vec(offset.x,offset.y,0).applyQuaternion(oldFrame),newOffset=vec(offset.x,offset.y,0).applyQuaternion(path.frame),center=path.points[0].clone().add(delta).add(oldOffset).sub(newOffset);path.lastLeader.copy(leader.position);
+  const oldOffset=vec(offset.x*layout.scale,offset.y*layout.scale,0).applyQuaternion(oldFrame),newOffset=vec(offset.x*layout.scale,offset.y*layout.scale,0).applyQuaternion(path.frame),center=path.points[0].clone().add(delta).add(oldOffset).sub(newOffset);path.lastLeader.copy(leader.position);
   if(path.points[0].distanceToSquared(center)>.0025){path.points.unshift(center);path.frames.unshift(path.frame.clone());}else{path.points[0].copy(center);path.frames[0].copy(path.frame);}
   let length=0;for(let i=1;i<path.points.length;i++){length+=path.points[i-1].distanceTo(path.points[i]);if(length>(layout.maxRank+3)*gap){path.points.splice(i+1);path.frames.splice(i+1);break;}}
 }
@@ -200,13 +207,22 @@ function sampleColumnPath(path,distance){
   const last=path.points.length-1,frame=path.frames[last].clone(),back=vec(0,0,-1).applyQuaternion(frame);return {position:path.points[last].clone().addScaledVector(back,Math.max(0,remaining)),frame};
 }
 function columnPathSlots(f){
-  const path=f.columnPath;if(!path?.points.length)return null;const layout=columnLayout(f),gap=SPACING_LEVELS[f.spacingLevels.z],leader=columnLeader(f),rows=new Map();
+  const path=f.columnPath;if(!path?.points.length)return null;const layout=columnLayout(f),gap=SPACING_LEVELS[f.spacingLevels.z]*layout.scale,leader=columnLeader(f),rows=new Map();
   let segment=1,traversed=0;for(let rank=0;rank<=layout.maxRank;rank++){
     const distance=rank*gap;while(segment<path.points.length){const length=path.points[segment-1].distanceTo(path.points[segment]);if(traversed+length>=distance&&length>1e-9)break;traversed+=length;segment++;}
     if(segment<path.points.length){const length=path.points[segment-1].distanceTo(path.points[segment]),t=length>0?(distance-traversed)/length:0;rows.set(rank,{position:path.points[segment-1].clone().lerp(path.points[segment],t),frame:path.frames[segment-1].clone().slerp(path.frames[segment],t)});}
     else {const last=path.points.length-1,frame=path.frames[last].clone();rows.set(rank,{position:path.points[last].clone().addScaledVector(vec(0,0,-1).applyQuaternion(frame),Math.max(0,distance-traversed)),frame});}
   }
-  return f.ships.map(ship=>{const slot=layout.byId.get(ship.id);if(!slot)return ship.position.clone();if(ship===leader)return f.columnGoal?.clone()??ship.position.clone();const row=rows.get(slot.rank);return row.position.clone().add(vec(slot.x,slot.y,0).applyQuaternion(row.frame));});
+  // A folded offset lane is temporarily held; the actual leader remains free to turn.
+  const proposed=new Map(),folded=new Set(),alive=f.ships.filter(ship=>ship.alive&&layout.byId.has(ship.id));
+  for(const ship of alive){const slot=layout.byId.get(ship.id),row=rows.get(slot.rank);proposed.set(ship.id,row.position.clone().add(vec(slot.x*layout.scale,slot.y*layout.scale,0).applyQuaternion(row.frame)));}
+  for(let i=0;i<alive.length;i++)for(let j=0;j<i;j++){
+    const a=alive[i],b=alive[j],sa=layout.byId.get(a.id),sb=layout.byId.get(b.id),pa=proposed.get(a.id),pb=proposed.get(b.id),same=sa.ix===sb.ix&&sa.iy===sb.iy,front=sa.rank<sb.rank?a:b,back=front===a?b:a,sf=layout.byId.get(front.id),distance=pa.distanceTo(pb),required=(a.collisionRadius??1.1)+(b.collisionRadius??1.1);
+    let reverse=false;if(same&&sa.rank!==sb.rank){const direction=vec(0,0,1).applyQuaternion(rows.get(sf.rank).frame);reverse=proposed.get(front.id).clone().sub(proposed.get(back.id)).dot(direction)<=0;}
+    if(reverse||distance<required-1e-7){const hold=back===leader?front:back;if(hold!==leader)folded.add(hold.id);}
+  }
+  const key=[...folded].sort().join('|');if(key!==(f.columnFoldKey??'')){f.columnFoldKey=key;f.slotVelocityHistory=null;}f.columnFoldedIds=folded;
+  return f.ships.map(ship=>{const slot=layout.byId.get(ship.id);if(!slot)return ship.position.clone();if(ship===leader)return f.columnGoal?.clone()??ship.position.clone();return folded.has(ship.id)?ship.position.clone():proposed.get(ship.id);});
 }
 // Goals are available immediately; movement, not interpolation of goals, forms the fleet.
 export function slots(f){return f.tactics.policy==='COLUMN'?(columnPathSlots(f)||rawSlots(f)):rawSlots(f);}
@@ -302,10 +318,10 @@ export function fleetManeuverLimits(f){const alive=f.ships.filter(s=>s.alive);if
 function moveAnchor(f,dt){
   const alive=f.ships.filter(s=>s.alive),limits=fleetManeuverLimits(f);f.motionLimits=limits;if(!limits){f.velocity.set(0,0,0);f.referenceArrived=false;return;}
   const e=f.encounter,active=e.active;if(!active)advancePatrol(f);f.previousAnchor=f.anchor.clone();
-  const lag=f.motionSlotError??0,gap=SPACING_LEVELS[f.spacingLevels.z],requestedFeedback=lag>gap*2?THREE.MathUtils.clamp(gap*2/lag,.5,1):1;f.motionProgressFactor=approach(f.motionProgressFactor??1,requestedFeedback,dt);const feedback=f.motionProgressFactor;
+  const lag=f.motionSlotError??0,gap=SPACING_LEVELS[f.spacingLevels.z]*(f.tactics.policy==='COLUMN'?columnLayout(f).scale:1),requestedFeedback=lag>gap*2?THREE.MathUtils.clamp(gap*2/lag,.5,1):1;f.motionProgressFactor=approach(f.motionProgressFactor??1,requestedFeedback,dt);const feedback=f.motionProgressFactor;
   if(f.tactics.policy==='COLUMN'){
     const layout=columnLayout(f),leader=columnLeader(f),offset=layout.byId.get(leader.id),frame=f.columnPath?.frame??f.rotation,key=[pointKey(f.destinationIndex),f.movement.policy,layout.key].join(':');
-    if(!f.columnGoal||f.columnGoalKey!==key){f.columnGoal=f.destination.clone().add(vec(offset.x,offset.y,0).applyQuaternion(frame));f.columnGoalKey=key;f.columnGoalFinal=layout.maxRank===0;f.columnGoalBlocked=false;}
+    if(!f.columnGoal||f.columnGoalKey!==key){f.columnGoal=f.destination.clone().add(vec(offset.x*layout.scale,offset.y*layout.scale,0).applyQuaternion(frame));f.columnGoalKey=key;f.columnGoalFinal=layout.maxRank===0;f.columnGoalBlocked=false;}
     if(!f.columnGoalFinal&&leader.position.distanceTo(f.columnGoal)<1.2){const direction=vec(0,0,1).applyQuaternion(frame).normalize();f.columnGoal.addScaledVector(direction,layout.maxRank*gap/2);f.columnGoalFinal=true;f.columnGoalBlocked=!insideBattlefield(f.columnGoal);}
     const desired=f.safetyStop||f.columnGoalBlocked?0:limits.cruise*feedback;f.columnSpeed=approach(f.columnSpeed??0,desired,(desired<(f.columnSpeed??0)?limits.brake:limits.acceleration)*dt);f.referenceArrived=f.columnGoalFinal&&leader.position.distanceTo(f.columnGoal)<.3&&leader.velocity.length()<.5;f.posture=f.safetyStop?'ENGAGING':'MOVING';return;
   }
@@ -755,14 +771,35 @@ export function resolveShipCollisions(ships,index,snapshot,priority=null){
   for(const ship of sorted){const fraction=fractions.get(ship.id);ship.collisionLimited=fraction<1;ship.position.copy(snapshot.get(ship.id)).addScaledVector(proposed.get(ship.id),fraction);if(fraction<1){ship.velocity.multiplyScalar(fraction);if(Number.isFinite(ship.propulsionForward))ship.propulsionForward*=fraction;if(Number.isFinite(ship.propulsionVertical))ship.propulsionVertical*=fraction;}}
   return {pairs:pairs.length,converged};
 }
-// Only a persistent, identified friendly obstruction can create a local yield.
+// A yield remains associated with the same right-of-way while its target is retried.
 const COOPERATION=Object.freeze({delay:.4,clearance:.8,release:.4,retry:1});
-function updateCooperation(state,index,snapshot,dt){
+function chooseYieldTarget(ship,other,index,snapshot,failed){
+  const origin=snapshot.get(ship.id),otherOrigin=snapshot.get(other.id);if(!origin||!otherOrigin)return null;
+  const distance=(ship.collisionRadius??1.1)+(other.collisionRadius??1.1)+COOPERATION.clearance,up=vec(0,1,0),forward=vec(0,0,1).applyQuaternion(ship.rotation),side=vec(forward.z,0,-forward.x).normalize(),away=origin.clone().sub(otherOrigin).normalize(),directions=[up,up.clone().negate(),side,side.clone().negate(),away];
+  for(let i=0;i<directions.length;i++){
+    const direction=directions[i];if(failed.has(i)||direction.lengthSq()<1e-8)continue;
+    const target=origin.clone().addScaledVector(direction,distance),radius=ship.collisionRadius??1.1;if(axes.some(a=>target[a]-radius<BATTLEFIELD.min[a]||target[a]+radius>BATTLEFIELD.max[a]))continue;
+    let clear=true;for(const nearby of index.near(origin,distance*2+radius)){if(nearby===ship||!nearby.alive)continue;const point=snapshot.get(nearby.id);if(!point)continue;const required=radius+(nearby.collisionRadius??1.1)+.1;if(target.distanceTo(point)<required){clear=false;break;}const start=origin.distanceTo(point);if(start<=required&&target.distanceTo(point)>start)continue;if(segmentSphere(origin,target,point,required)!==null){clear=false;break;}}
+    if(clear)return {target,index:i};
+  }return null;
+}
+function retryYield(ship,other,index,snapshot,y){
+  const selected=chooseYieldTarget(ship,other,index,snapshot,y.failed);
+  if(selected){y.phase='MOVE';y.target=selected.target;y.candidate=selected.index;y.bestDistance=ship.position.distanceTo(y.target);y.stalled=0;}
+  else{y.phase='RETRY';y.hold=ship.position.clone();y.retryTime=0;if(y.failed.size>=5)y.failed.clear();}
+}
+export function updateCooperation(state,index,snapshot,dt){
   const teams=new Map(state.fleets.map(f=>[f.id,f.team])),ships=new Map(state.fleets.flatMap(f=>f.ships).filter(s=>s.alive).map(s=>[s.id,s]));
   for(const ship of ships.values()){
     const y=ship.yieldState;if(!y)continue;const other=ships.get(y.otherId);
     if(!other||teams.get(ship.fleetId)!==teams.get(other.fleetId)){ship.yieldState=null;continue;}
-    if(y.phase==='MOVE'&&ship.position.distanceTo(y.target)<.5){y.phase='WAIT';y.hold=ship.position.clone();y.clearTime=0;}
+    if(y.phase==='MOVE'){
+      const distance=ship.position.distanceTo(y.target);
+      if(distance<.5){y.phase='WAIT';y.hold=ship.position.clone();y.clearTime=0;}
+      else{if(distance<y.bestDistance-.05){y.bestDistance=distance;y.stalled=0;}else y.stalled+=dt;
+        if(y.stalled>=COOPERATION.retry&&(ship.collisionLimited||ship.boundaryLimited)){y.failed.add(y.candidate);retryYield(ship,other,index,snapshot,y);}}
+    }
+    if(y.phase==='RETRY'){y.retryTime+=dt;if(y.retryTime>=COOPERATION.retry){if(y.failed.size)y.failed.clear();retryYield(ship,other,index,snapshot,y);}}
     if(y.phase==='WAIT'){
       const distance=ship.position.distanceTo(other.position),clear=(ship.collisionRadius??1.1)+(other.collisionRadius??1.1)+COOPERATION.clearance;
       const away=other.position.clone().sub(y.otherStart);if(distance>clear&&away.length()>clear*.5)y.clearTime+=dt;else y.clearTime=0;
@@ -778,12 +815,7 @@ function updateCooperation(state,index,snapshot,dt){
     const shipLeader=fleet?.tactics.policy==='COLUMN'&&fleet.columnLeaderId===ship.id,otherLeader=otherFleet?.tactics.policy==='COLUMN'&&otherFleet.columnLeaderId===other.id;
     const yielder=shipLeader!==otherLeader?(shipLeader?other:ship):(ship.velocity.length()<.1&&other.velocity.length()>.1?ship:other.velocity.length()<.1&&ship.velocity.length()>.1?other:ship.id.localeCompare(other.id)>0?ship:other);
     const priority=yielder===ship?other:ship;if(yielder.yieldState||priority.yieldState)continue;
-    const origin=snapshot.get(yielder.id),otherOrigin=snapshot.get(priority.id),distance=(yielder.collisionRadius??1.1)+(priority.collisionRadius??1.1)+COOPERATION.clearance,up=vec(0,1,0),forward=vec(0,0,1).applyQuaternion(yielder.rotation),side=vec(forward.z,0,-forward.x).normalize(),away=origin.clone().sub(otherOrigin).normalize();
-    const directions=[up,up.clone().negate(),side,side.clone().negate(),away];let selected=null;
-    for(const direction of directions){if(direction.lengthSq()<1e-8)continue;const target=origin.clone().addScaledVector(direction,distance),radius=yielder.collisionRadius??1.1;if(axes.some(a=>target[a]-radius<BATTLEFIELD.min[a]||target[a]+radius>BATTLEFIELD.max[a]))continue;
-      let clear=true;for(const nearby of index.near(origin,distance*2+radius)){if(nearby===yielder||!nearby.alive)continue;const point=snapshot.get(nearby.id),required=radius+(nearby.collisionRadius??1.1)+.1;if(target.distanceTo(point)<required){clear=false;break;}const start=origin.distanceTo(point);if(start<=required&&target.distanceTo(point)>start)continue;if(segmentSphere(origin,target,point,required)!==null){clear=false;break;}}
-      if(clear){selected=target;break;}}
-    if(selected){yielder.yieldState={otherId:priority.id,target:selected,otherStart:priority.position.clone(),phase:'MOVE',clearTime:0};yielder.blockedTime=0;}
+    const y={otherId:priority.id,otherStart:priority.position.clone(),failed:new Set(),phase:'RETRY',hold:yielder.position.clone(),retryTime:0};yielder.yieldState=y;yielder.blockedTime=0;retryYield(yielder,priority,index,snapshot,y);
   }
 }
 function addProfile(state,key,start){if(start!==null)state.profile.ms[key]=(state.profile.ms[key]||0)+(performance.now()-start);}
@@ -803,7 +835,7 @@ export function step(state,dt=CONFIG.dt){
       if(!s.alive)return;
       const target=points[i].clone();
       if(s.evasion&&f.tactics.policy!=='COLUMN')target.add(s.evasion.offset);
-      const separating=!!s.yieldState&&!(f.tactics.policy==='COLUMN'&&f.safetyStop);if(separating)target.copy(s.yieldState.phase==='WAIT'?s.yieldState.hold:s.yieldState.target);
+      const separating=!!s.yieldState&&!(f.tactics.policy==='COLUMN'&&f.safetyStop);if(separating)target.copy(s.yieldState.phase==='MOVE'?s.yieldState.target:s.yieldState.hold);
       let face=vec(0,0,1).applyQuaternion(f.rotation);
       if(f.tactics.policy==='POINT_DEFENSE'){
         const radial=points[i].clone().sub(f.anchor);radial.y=0;
@@ -811,13 +843,13 @@ export function step(state,dt=CONFIG.dt){
       }
       let up=vec(0,1,0);if(Math.abs(face.clone().normalize().dot(up))>.999)up=vec(1,0,0);
       const base=facing(face.clone().normalize(),up),aimStart=state.profile?performance.now():null,stable=(f.tactics.policy==='COLUMN'&&f.columnMode==='HOLD'||s.position.distanceTo(target)<=.8)&&s.velocity.length()<=.1,allowAim=stable&&(f.tactics.policy==='COLUMN'?(f.columnMode==='HOLD'||f.arrived):f.tactics.policy==='LINE'?f.encounter.lineEngaged:f.tactics.policy==='POINT_DEFENSE'?f.encounter.arrived:false),aimLimit=f.tactics.policy==='POINT_DEFENSE'?Math.acos(.9):f.tactics.policy==='LINE'?Math.PI/6:Math.PI/2,aimRotation=allowAim?aimFromBase(s,base,snapshot.get(s.id),true,aimLimit):null;addProfile(state,'aimPlan',aimStart);
-    const slotVelocity=slotVelocities[i],column=f.tactics.policy==='COLUMN',leader=column&&s.id===f.columnLeaderId,braking=column&&(f.safetyStop||f.columnGoalBlocked)&&f.columnMode!=='HOLD',referenceSettled=f.safetyStop||f.encounter.target&&f.anchor.distanceTo(f.encounter.target)<.1,align=!separating&&!column&&f.encounter.active&&referenceSettled&&s.position.distanceTo(target)<=.8&&s.velocity.length()<=.5&&f.velocity.length()<=.1,track=!separating&&!align&&!leader&&(!column||!f.safetyStop)&&(column||!f.referenceArrived);steerShip(s,braking||column&&f.safetyStop||align?snapshot.get(s.id):target,dt,{mode:braking?'BRAKE':track?'TRACK':'STOP',targetVelocity:track?slotVelocity:null,face:align||stable?face:null,aimRotation:separating?null:aimRotation,speedLimit:leader?f.columnSpeed:s.forwardSpeed,compositeLimit:leader?f.motionLimits.cruise:s.forwardSpeed,accelerationLimit:leader?f.motionLimits.acceleration:Infinity,brakeLimit:leader?f.motionLimits.brake:Infinity});
+    const slotVelocity=slotVelocities[i],column=f.tactics.policy==='COLUMN',leader=column&&s.id===f.columnLeaderId,braking=column&&(f.safetyStop||f.columnGoalBlocked)&&f.columnMode!=='HOLD',referenceSettled=f.safetyStop||f.encounter.target&&f.anchor.distanceTo(f.encounter.target)<.1,align=!separating&&!column&&f.encounter.active&&referenceSettled&&s.position.distanceTo(target)<=.8&&s.velocity.length()<=.5&&f.velocity.length()<=.1,track=!separating&&!align&&!leader&&(!column||!f.safetyStop&&!f.columnFoldedIds?.has(s.id))&&(column||!f.referenceArrived);steerShip(s,braking||column&&f.safetyStop||align?snapshot.get(s.id):target,dt,{mode:braking?'BRAKE':track?'TRACK':'STOP',targetVelocity:track?slotVelocity:null,face:align||stable?face:null,aimRotation:separating?null:aimRotation,speedLimit:leader?f.columnSpeed:s.forwardSpeed,compositeLimit:leader?f.motionLimits.cruise:s.forwardSpeed,accelerationLimit:leader?f.motionLimits.acceleration:Infinity,brakeLimit:leader?f.motionLimits.brake:Infinity});
       s.position.clamp(vec(BATTLEFIELD.min.x,BATTLEFIELD.min.y,BATTLEFIELD.min.z),vec(BATTLEFIELD.max.x,BATTLEFIELD.max.y,BATTLEFIELD.max.z));
     });
   }
   const collisionStart=state.profile?performance.now():null,priority=new Map(state.fleets.flatMap(f=>f.ships.map((s,i)=>{const slot=f.tactics.policy==='COLUMN'?columnLayout(f).byId.get(s.id):null;return [s.id,{group:slot?slot.ix+','+slot.iy:s.id,rank:slot?slot.rank:i}];})));resolveShipCollisions(all,movementIndex,snapshot,priority);addProfile(state,'movementCollision',collisionStart);
   for(const f of state.fleets){
-    if(f.tactics.policy==='COLUMN'){updateColumnPath(f);const path=f.columnPath,leader=columnLeader(f);if(path?.points.length&&leader){const layout=columnLayout(f),sample=sampleColumnPath(path,layout.maxRank*SPACING_LEVELS[f.spacingLevels.z]/2),previous=f.anchor.clone();f.anchor.copy(sample.position);f.velocity.copy(f.anchor).sub(previous).divideScalar(dt);f.rotation.copy(sample.frame);f.referenceArrived=!!f.columnGoal&&leader.position.distanceTo(f.columnGoal)<.3&&leader.velocity.length()<.5&&f.anchor.distanceTo(f.destination)<.8;}}
+    if(f.tactics.policy==='COLUMN'){updateColumnPath(f);const path=f.columnPath,leader=columnLeader(f);if(path?.points.length&&leader){const layout=columnLayout(f),sample=sampleColumnPath(path,layout.maxRank*SPACING_LEVELS[f.spacingLevels.z]*layout.scale/2),previous=f.anchor.clone();f.anchor.copy(sample.position);f.velocity.copy(f.anchor).sub(previous).divideScalar(dt);f.rotation.copy(sample.frame);f.referenceArrived=!!f.columnGoal&&leader.position.distanceTo(f.columnGoal)<.3&&leader.velocity.length()<.5&&f.anchor.distanceTo(f.destination)<.8;}}
     if(f.tactics.policy==='COLUMN'&&f.safetyStop&&f.columnMode==='BRAKE'&&f.velocity.length()<=.1&&f.ships.filter(s=>s.alive).every(s=>s.velocity.length()<=.1))f.columnMode='HOLD';
     const goals=slots(f),alive=f.ships.map((s,i)=>({s,i})).filter(({s})=>s.alive),settled=f.referenceArrived&&f.movement.policy==='MOVE'&&alive.length>0&&alive.every(({s,i})=>s.position.distanceTo(goals[i])<=.8&&s.velocity.length()<=.5);
     f.formationSettleTime=settled?(f.formationSettleTime||0)+dt:0;f.arrived=settled&&f.formationSettleTime>=.5;
