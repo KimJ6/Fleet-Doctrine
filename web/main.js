@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { CONFIG, COMMAND_GRID, BATTLEFIELD, ZONES, SCORE_CONFIG, zoneCounts, gridToWorld, worldToNearestGrid, insideBattlefield, setDestination, setMovementPolicy, setPatrolRoute, setCombatPolicy, setDefenseAnchor, gridToWorld as patrolPointWorld, ECONOMY_CONFIG, configureBalance, createEmptyFleet, purchaseShip, assignReserve, deployReserves, prepareEnemyAI, checkRecovery, initialState, slots, grid, dimensions, validateSize, sizeForSpacing, step, start } from './simulation.js?v=movement-20261129a';
+import { CONFIG, COMMAND_GRID, BATTLEFIELD, ZONES, SCORE_CONFIG, zoneCounts, gridToWorld, worldToNearestGrid, insideBattlefield, setDestination, setMovementPolicy, setPatrolRoute, setCombatPolicy, setDefenseAnchor, gridToWorld as patrolPointWorld, ECONOMY_CONFIG, configureBalance, createEmptyFleet, purchaseShip, assignReserve, deployReserves, prepareEnemyAI, checkRecovery, initialState, slots, grid, dimensions, validateSize, sizeForSpacing, step, start } from './simulation.js?v=movement-20261129b';
 import { approximateMoveBatch } from './ship-rig-adapter.js?v=refactor-20261127c';
-import { loadShipViews } from './ship-view.js?v=movement-20261129a';
-import { loadBalance } from './balance.js?v=movement-20261129a';
-import { createBattleCombat } from './weapon-combat.js?v=movement-20261129a';
+import { loadShipViews } from './ship-view.js?v=movement-20261129b';
+import { loadBalance } from './balance.js?v=movement-20261129b';
+import { createBattleCombat } from './weapon-combat.js?v=movement-20261129b';
 import { createEffects } from './effects.js?v=refactor-20261127d';
 import { createCameraInput } from './camera-input.js?v=refactor-20261127c';
-import { createStatusUI } from './status-ui.js?v=movement-20261129a';
+import { createStatusUI } from './status-ui.js?v=movement-20261129b';
 
 
 const $ = id => document.getElementById(id);
