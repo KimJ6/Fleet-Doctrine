@@ -132,7 +132,7 @@ function chooseDefenseRotation(f,center){
 function updateColumnPath(f,constrained=false){
   if(f.tactics.policy!=='COLUMN'){f.columnPath=null;return;}
   const gap=SPACING_LEVELS[f.spacingLevels.z],forward=vec(0,0,1).applyQuaternion(f.rotation).normalize(),half=((constrained?f.ships.filter(s=>s.alive).length:f.ships.length)-1)*gap/2,leadGoal=f.anchor.clone().addScaledVector(forward,half),leader=f.ships.find(ship=>ship.alive),lead=constrained&&leader?leader.position.clone():leadGoal;
-  const key=f.ships.map(s=>s.id).join('|')+'|'+gap+'|'+f.tactics.revision;
+  const key=constrained?'live|'+f.tactics.revision:f.ships.map(s=>s.id).join('|')+'|'+gap+'|'+f.tactics.revision;
   if(!f.columnPath||f.columnPath.key!==key||f.columnPath.constrained!==constrained){
     const points=[];for(let i=0;i<Math.max(2,f.ships.length+1);i++)points.push(lead.clone().addScaledVector(forward,-gap*i));
     f.columnPath={key,points,constrained,leadGoal,leaderId:leader?.id??null};return;
@@ -144,18 +144,14 @@ function updateColumnPath(f,constrained=false){
   let length=0;for(let i=1;i<points.length;i++){length+=points[i-1].distanceTo(points[i]);if(length>(f.ships.length+2)*gap){points.splice(i+1);break;}}
 }
 function columnPathSlots(f){
-  const gap=SPACING_LEVELS[f.spacingLevels.z],key=f.ships.map(s=>s.id).join('|')+'|'+gap+'|'+f.tactics.revision;
+  const gap=SPACING_LEVELS[f.spacingLevels.z],key=f.columnPath?.constrained?'live|'+f.tactics.revision:f.ships.map(s=>s.id).join('|')+'|'+gap+'|'+f.tactics.revision;
   const points=f.columnPath?.key===key?f.columnPath.points:null;if(!points?.length)return null;
-  const out=[],firstAlive=Math.max(0,f.ships.findIndex(ship=>ship.alive));let liveRank=0;
+  const out=[],firstAlive=Math.max(0,f.ships.findIndex(ship=>ship.alive));let liveRank=0,segment=1,travelled=0;
   for(let ship=0;ship<f.ships.length;ship++){
     if(f.columnPath.constrained&&ship===firstAlive){out.push(f.columnPath.leadGoal.clone());liveRank++;continue;}
     const rank=f.columnPath.constrained?liveRank:Math.max(0,ship-firstAlive);if(f.columnPath.constrained&&f.ships[ship].alive)liveRank++;
-    let remaining=rank*gap,position=points[0].clone();
-    for(let i=1;i<points.length&&remaining>0;i++){
-      const length=points[i-1].distanceTo(points[i]);
-      if(length>=remaining&&length>1e-9){position.copy(points[i-1]).lerp(points[i],remaining/length);remaining=0;break;}
-      position.copy(points[i]);remaining-=length;
-    }
+    const distance=rank*gap;while(segment<points.length){const length=points[segment-1].distanceTo(points[segment]);if(travelled+length>=distance&&length>1e-9)break;travelled+=length;segment++;}
+    const position=segment<points.length?points[segment-1].clone().lerp(points[segment],(distance-travelled)/points[segment-1].distanceTo(points[segment])):points[points.length-1].clone();
     out.push(position);
   }
   return out;
@@ -179,7 +175,7 @@ export function formationSlotVelocities(f,points,dt){
 // During constrained movement, history describes the last resolved positions. Only
 // the leader's virtual goal may change before the next collision resolution.
 function constrainedColumnSlots(f){
-  const gap=SPACING_LEVELS[f.spacingLevels.z],key=f.ships.map(s=>s.id).join('|')+'|'+gap+'|'+f.tactics.revision;
+  const gap=SPACING_LEVELS[f.spacingLevels.z],key='live|'+f.tactics.revision;
   if(!f.columnPath||f.columnPath.key!==key||!f.columnPath.constrained)updateColumnPath(f,true);
   else f.columnPath.leadGoal=f.anchor.clone().addScaledVector(vec(0,0,1).applyQuaternion(f.rotation).normalize(),(f.ships.filter(s=>s.alive).length-1)*gap/2);
   return slots(f);
@@ -214,6 +210,7 @@ const wrapAngle=a=>Math.atan2(Math.sin(a),Math.cos(a));
 const approach=(a,b,step)=>a+THREE.MathUtils.clamp(b-a,-step,step);
 export function navigateShip(ship,target,{mode='STOP',targetVelocity=null,face=null,aimRotation=null}={}){
   const c=ship.maneuver;if(!c)throw new Error('함선 기동 설정이 없습니다: '+ship.id);
+  if(mode==='BRAKE'){const e=new THREE.Euler().setFromQuaternion(ship.rotation,'YXZ');return {mode,forward:0,verticalReference:0,yaw:e.y,pitch:e.x,roll:e.z};}
   if(mode!=='TRACK'&&mode!=='STOP')throw new Error('항법 목표 모드가 올바르지 않습니다.');
   const delta=target.clone().sub(ship.position),distance=delta.length(),forward=vec(0,0,1).applyQuaternion(ship.rotation),e=new THREE.Euler().setFromQuaternion(ship.rotation,'YXZ');
   const navigation=ship.navigationState||(ship.navigationState={reverse:false}),rearDot=distance>1e-9?delta.dot(forward)/distance:0;
@@ -224,7 +221,7 @@ export function navigateShip(ship,target,{mode='STOP',targetVelocity=null,face=n
   else if(aimRotation||face){const desired=aimRotation?new THREE.Euler().setFromQuaternion(aimRotation,'YXZ'):new THREE.Euler().setFromQuaternion(facing(face.clone().normalize(),vec(0,1,0)),'YXZ');yaw=desired.y;pitch=THREE.MathUtils.clamp(desired.x,-THREE.MathUtils.degToRad(c.max_pitch_angle),THREE.MathUtils.degToRad(c.max_pitch_angle));roll=THREE.MathUtils.clamp(desired.z,-THREE.MathUtils.degToRad(c.max_roll_angle),THREE.MathUtils.degToRad(c.max_roll_angle));}
   const yawError=wrapAngle(yaw-e.y),along=delta.dot(forward),braking=Math.sqrt(Math.max(0,2*c.brake_deceleration*Math.max(0,Math.abs(along)-NAVIGATION_CONFIG.arrival)));
   let request=mode==='TRACK'?THREE.MathUtils.clamp(reference.dot(forward),0,ship.forwardSpeed):distance<NAVIGATION_CONFIG.arrival?0:reverse?-Math.min(c.max_reverse_speed,braking):Math.min(ship.forwardSpeed,braking,ship.forwardSpeed*Math.max(0,Math.cos(yawError))**2);
-  if(!reverse&&Math.abs(yawError)>NAVIGATION_CONFIG.turnLimit)request=0;
+  if(!reverse&&(Math.abs(yawError)>NAVIGATION_CONFIG.turnLimit||horizontal<.01))request=0;
   return {mode,forward:request,verticalReference:(mode==='TRACK'&&targetVelocity?targetVelocity.y:0)+NAVIGATION_CONFIG.verticalGain*delta.y,yaw,pitch,roll};
 }
 export function integrateManeuver(ship,command,dt){
@@ -236,8 +233,9 @@ export function integrateManeuver(ship,command,dt){
   e.x=THREE.MathUtils.clamp(e.x,-THREE.MathUtils.degToRad(c.max_pitch_angle),THREE.MathUtils.degToRad(c.max_pitch_angle));e.z=THREE.MathUtils.clamp(e.z,-THREE.MathUtils.degToRad(c.max_roll_angle),THREE.MathUtils.degToRad(c.max_roll_angle));ship.rotation.setFromEuler(e);
   const forward=vec(0,0,1).applyQuaternion(ship.rotation);let requested=command.forward,current=ship.propulsionForward||0;if(current*requested<0)requested=0;
   const rate=Math.abs(requested)<Math.abs(current)?c.brake_deceleration:requested<0?c.reverse_acceleration:c.forward_acceleration;current=approach(current,requested,rate*dt);ship.propulsionForward=THREE.MathUtils.clamp(current,-c.max_reverse_speed,speedLimit);
-  const vertical=THREE.MathUtils.clamp(command.verticalReference-forward.y*ship.propulsionForward,-c.max_vertical_speed,c.max_vertical_speed);ship.propulsionVertical=approach(ship.propulsionVertical||0,vertical,c.vertical_acceleration*dt);
-  ship.velocity.copy(forward).multiplyScalar(ship.propulsionForward);ship.velocity.y+=ship.propulsionVertical;ship.position.addScaledVector(ship.velocity,dt).clamp(vec(BATTLEFIELD.min.x,BATTLEFIELD.min.y,BATTLEFIELD.min.z),vec(BATTLEFIELD.max.x,BATTLEFIELD.max.y,BATTLEFIELD.max.z));
+  const vertical=command.mode==='BRAKE'?0:THREE.MathUtils.clamp(command.verticalReference-forward.y*ship.propulsionForward,-c.max_vertical_speed,c.max_vertical_speed);ship.propulsionVertical=approach(ship.propulsionVertical||0,vertical,c.vertical_acceleration*dt);
+  ship.velocity.copy(forward).multiplyScalar(ship.propulsionForward);ship.velocity.y+=ship.propulsionVertical;const before=ship.position.clone();ship.position.addScaledVector(ship.velocity,dt).clamp(vec(BATTLEFIELD.min.x,BATTLEFIELD.min.y,BATTLEFIELD.min.z),vec(BATTLEFIELD.max.x,BATTLEFIELD.max.y,BATTLEFIELD.max.z));
+  const actual=ship.position.clone().sub(before).divideScalar(dt);if(actual.distanceToSquared(ship.velocity)>1e-12){ship.velocity.copy(actual);ship.propulsionForward=actual.dot(forward);ship.propulsionVertical=actual.y-forward.y*ship.propulsionForward;}
   const diagnostic=ship.maneuverCommand||(ship.maneuverCommand={});Object.assign(diagnostic,{mode:command.mode,forward:requested,vertical,yaw:command.yaw,pitch:command.pitch,roll:command.roll});
 }
 export function steerShip(ship,target,dt,{mode='STOP',targetVelocity=null,face=null,aimRotation=null}={}){
@@ -308,9 +306,9 @@ function updateOrientation(f,direction,dt){
 }
 function moveAnchor(f,dt,constrained=false){
   const e=f.encounter,active=e.active;if(!active)advancePatrol(f);
-  if(f.safetyStop||f.columnRegroup){if(constrained)f.referenceArrived=false;f.posture='ENGAGING';f.previousAnchor=f.anchor.clone();f.velocity.add(f.velocity.clone().negate().clampLength(0,CONFIG.anchorAcceleration*dt));f.anchor.addScaledVector(f.velocity,dt);if(active&&e.face)updateOrientation(f,e.face,dt);return;}
+  if(f.safetyStop){if(constrained)f.referenceArrived=false;f.posture='ENGAGING';f.previousAnchor=f.anchor.clone();f.velocity.add(f.velocity.clone().negate().clampLength(0,CONFIG.anchorAcceleration*dt));f.anchor.addScaledVector(f.velocity,dt);if(active&&e.face)updateOrientation(f,e.face,dt);return;}
   const target=active?e.target:(f.tactics.policy==='COLUMN'&&f.columnTarget?f.columnTarget:f.destination),dist=f.anchor.distanceTo(target);f.posture=active?'ENGAGING':dist<CONFIG.arrivalDistance?'IDLE':'MOVING';
-  let speed=Math.min(CONFIG.anchorSpeed,...f.ships.filter(s=>s.alive).map(s=>s.forwardSpeed??CONFIG.shipSpeed));const lag=Math.max(0,...f.ships.filter(s=>s.alive).map(s=>s.position.distanceTo(f.anchor)-f.size.length()));if(lag>4)speed*=.6;if(f.formationRatio!==undefined&&f.formationRatio<.75)speed*=.75;
+  let speed=Math.min(CONFIG.anchorSpeed,...f.ships.filter(s=>s.alive).map(s=>s.forwardSpeed??CONFIG.shipSpeed));if(!constrained||f.tactics.policy!=='COLUMN'){const lag=Math.max(0,...f.ships.filter(s=>s.alive).map(s=>s.position.distanceTo(f.anchor)-f.size.length()));if(lag>4)speed*=.6;if(f.formationRatio!==undefined&&f.formationRatio<.75)speed*=.75;}
   let turnRate=.8;if(constrained){const alive=f.ships.filter(s=>s.alive),limit=Math.min(...alive.map(s=>s.forwardSpeed??CONFIG.shipSpeed));if(alive.length){speed=Math.min(speed,limit*.8);const lag=f.motionSlotError??0,gap=SPACING_LEVELS[f.spacingLevels.z];if(lag>gap)speed*=THREE.MathUtils.clamp(gap/lag,.25,1);if((f.motionVelocityError??0)>limit*.6)speed*=.8;if((f.motionHeadingError??0)>Math.PI/2)speed*=.8;const radius=Math.max(1,...alive.map(s=>s.position.distanceTo(f.anchor))),demand=Math.max(1,f.motionDemandRatio??1);speed/=demand;turnRate=Math.min(turnRate,...alive.map(s=>s.maneuver?.max_yaw_rate??turnRate),Math.max(0,(limit-speed)/radius))/demand;}}
   f.previousAnchor=f.anchor.clone();steerMotion(f,target,dt,{speed,acceleration:CONFIG.anchorAcceleration,face:active?e.face:null,reverse:false,turnRate});
   const referenceArrived=!active&&f.anchor.distanceTo(f.destination)<=CONFIG.arrivalDistance&&f.velocity.length()<=CONFIG.arrivalSpeed;if(constrained)f.referenceArrived=referenceArrived;else f.arrived=referenceArrived;
@@ -499,45 +497,32 @@ function updateEncounters(state,dt,movementIndex){
 }
 // Proximity uses the shared pre-movement snapshot and actual ship positions.
 const SAFETY_SEARCH=36;
-// The experimental column keeps its commanded route and predicts only whether
-// continuing that route approaches an enemy, using copies of the maneuver state.
-export const COLUMN_STOP_CONFIG=Object.freeze({seconds:4,releaseMargin:.5,resumeScans:3,maxFleetSteps:4096,maxBattleSteps:16384,maxBattleChecks:262144});
-function updateColumnStop(f,index,snapshot,teams,budget){
-  const delta=f.destination.clone().sub(f.anchor),distance=delta.length(),alive=f.ships.filter(s=>s.alive&&snapshot.has(s.id));
-  f.columnTarget=null;f.columnReference=null;
-  if(distance<CONFIG.arrivalDistance||!alive.length){f.safetyStop=false;f.columnMode='TRAVEL';f.pathBlockId=null;f.columnClearScans=0;return;}
-  const direction=delta.normalize(),duration=COLUMN_STOP_CONFIG.seconds,ticks=Math.ceil(duration/CONFIG.dt);
-  if(index.columnMaxSpeed===undefined){let maximum=CONFIG.shipSpeed;for(const cell of index.cells.values())for(const s of cell)maximum=Math.max(maximum,s.velocity.length(),(s.forwardSpeed??CONFIG.shipSpeed)+(s.maneuver?.max_vertical_speed??0));index.columnMaxSpeed=maximum;}const maxEnemySpeed=index.columnMaxSpeed;
-  const maxOwnSpeed=Math.max(...alive.map(s=>s.forwardSpeed??CONFIG.shipSpeed)),bounds=new THREE.Box3().setFromPoints(alive.map(s=>snapshot.get(s.id)));bounds.expandByScalar(12+(maxOwnSpeed+maxEnemySpeed)*duration+4);
-  const enemies=index.query(bounds.min,bounds.max).filter(other=>other.alive&&teams.get(other.fleetId)!==f.team);
-  let blocker=null,unknown=false,fleetSteps=0;const initialSlots=slots(f);
-  for(const ship of alive){if(blocker||unknown||!enemies.length)break;const predicted=cloneManeuverState(ship),startSlot=initialSlots[f.ships.indexOf(ship)],velocity=direction.clone().multiplyScalar(CONFIG.anchorSpeed);
-    for(let tick=0;tick<ticks&&!blocker&&!unknown;tick++){
-      if(fleetSteps>=budget.maxFleetSteps||budget.steps>=budget.maxBattleSteps){unknown=true;break;}fleetSteps++;budget.steps++;
-      const before=predicted.position.clone(),goal=startSlot.clone().addScaledVector(direction,Math.min(distance,CONFIG.anchorSpeed*(tick+1)*CONFIG.dt));steerShip(predicted,goal,CONFIG.dt,{mode:'TRACK',targetVelocity:velocity});
-      for(const enemy of enemies){if(budget.checks>=budget.maxBattleChecks){unknown=true;break;}budget.checks++;const other=snapshot.get(enemy.id);if(!other)continue;const start=before.clone().sub(other).addScaledVector(enemy.velocity,-tick*CONFIG.dt),end=predicted.position.clone().sub(other).addScaledVector(enemy.velocity,-(tick+1)*CONFIG.dt),radius=12+(f.safetyStop?COLUMN_STOP_CONFIG.releaseMargin:0);
-        if(start.lengthSq()<radius*radius){if(start.dot(end.clone().sub(start))<0||tick===0)blocker=enemy.id;}
-        else if(segmentSphere(start,end,vec(),radius)!==null)blocker=enemy.id;
-        if(blocker)break;
-      }
+// A local braking envelope is a tactical approximation, not a future safety proof.
+export const COLUMN_STOP_CONFIG=Object.freeze({distance:12,releaseMargin:.5,resumeScans:3});
+function updateColumnStop(f,index,snapshot,teams,scan){
+  const alive=f.ships.filter(s=>s.alive&&snapshot.has(s.id));
+  if(!alive.length){f.safetyStop=false;f.columnMode='TRAVEL';f.pathBlockId=null;return;}
+  const reaction=ENCOUNTER_CONFIG.scanTicks*CONFIG.dt, maxEnemy=index.columnMaxSpeed??CONFIG.shipSpeed,maxOwn=Math.max(...alive.map(s=>Math.max(s.velocity.length(),(s.forwardSpeed??CONFIG.shipSpeed)+(s.maneuver?.max_vertical_speed??0))));
+  const maxTime=Math.max(...alive.map(s=>Math.max(s.velocity.length(),CONFIG.anchorSpeed)/Math.max(.001,s.maneuver?.brake_deceleration??CONFIG.acceleration)))+reaction;
+  const bounds=new THREE.Box3().setFromPoints(alive.map(s=>snapshot.get(s.id))).expandByScalar(COLUMN_STOP_CONFIG.distance+COLUMN_STOP_CONFIG.releaseMargin+(maxEnemy+maxOwn)*maxTime+2);
+  const enemies=index.query(bounds.min,bounds.max).filter(s=>s.alive&&teams.get(s.fleetId)!==f.team);
+  const route=f.destination.clone().sub(f.anchor),hasRoute=route.lengthSq()>CONFIG.arrivalDistance**2;if(hasRoute)route.normalize();
+  let blocker=null;
+  for(const ship of alive){
+    const origin=snapshot.get(ship.id),speed=ship.velocity.length(),brake=Math.max(.001,ship.maneuver?.brake_deceleration??CONFIG.acceleration),time=reaction+Math.max(speed,CONFIG.anchorSpeed)/brake;
+    const intended=hasRoute?route.clone().multiplyScalar(CONFIG.anchorSpeed):vec();
+    for(const enemy of enemies){const other=snapshot.get(enemy.id);if(!other)continue;const relative=other.clone().sub(origin),distance=relative.length();if(distance<1e-8){blocker=enemy.id;break;}
+      const toward=relative.clone().multiplyScalar(1/distance),actualClosing=ship.velocity.clone().sub(enemy.velocity).dot(toward),intentClosing=intended.clone().sub(enemy.velocity).dot(toward),closing=Math.max(actualClosing,intentClosing),limit=COLUMN_STOP_CONFIG.distance+(f.safetyStop?COLUMN_STOP_CONFIG.releaseMargin:0);
+      if(closing<=.01)continue;
+      const relativeVelocity=enemy.velocity.clone().sub(intended),denom=relativeVelocity.lengthSq(),closest=denom>1e-9?THREE.MathUtils.clamp(-relative.dot(relativeVelocity)/denom,0,time):0;
+      const corridor=relative.clone().addScaledVector(relativeVelocity,closest).length();
+      if((distance<=limit+Math.max(0,actualClosing)*(reaction+speed/(2*brake))||corridor<=limit)&&closest<=time){blocker=enemy.id;break;}
     }
+    if(blocker)break;
   }
-  if(blocker||unknown){f.safetyStop=true;f.pathBlockId=blocker;f.columnSafetyReason=unknown?'UNKNOWN_BUDGET':'BLOCKED';f.columnClearScans=0;if(f.columnMode!=='HOLD')f.columnMode='BRAKE';}
-  else if(f.safetyStop){f.columnClearScans=(f.columnClearScans||0)+1;if(f.columnClearScans>=COLUMN_STOP_CONFIG.resumeScans){f.safetyStop=false;f.pathBlockId=null;f.columnSafetyReason='CLEAR';f.columnMode='TRAVEL';}}
+  if(blocker){f.safetyStop=true;f.pathBlockId=blocker;f.columnSafetyReason='BLOCKED';f.columnClearScans=0;if(f.columnMode!=='HOLD')f.columnMode='BRAKE';}
+  else if(f.safetyStop){if(scan)f.columnClearScans=(f.columnClearScans||0)+1;if(f.columnClearScans>=COLUMN_STOP_CONFIG.resumeScans){f.safetyStop=false;f.pathBlockId=null;f.columnSafetyReason='CLEAR';f.columnMode='TRAVEL';}}
   else{f.pathBlockId=null;f.columnSafetyReason='CLEAR';f.columnMode='TRAVEL';}
-}
-// Fast per-tick guard between the slower route assessments. This is a bounded
-// warning, not proof that an approaching opponent can always be avoided.
-function guardColumnImmediate(f,index,snapshot,teams){
-  if(f.safetyStop)return;
-  const alive=f.ships.filter(ship=>ship.alive&&snapshot.has(ship.id));if(!alive.length)return;
-  const reaction=ENCOUNTER_CONFIG.scanTicks*CONFIG.dt,maxSpeed=index.columnMaxSpeed??CONFIG.shipSpeed;
-  const reaches=alive.map(ship=>{const own=ship.velocity.length(),brake=ship.maneuver?.brake_deceleration??CONFIG.acceleration;return 12+(own+maxSpeed)*(reaction+own/Math.max(.001,brake))+2;});
-  const bounds=new THREE.Box3().setFromPoints(alive.map(ship=>snapshot.get(ship.id))).expandByScalar(Math.max(...reaches));
-  const candidates=index.query(bounds.min,bounds.max).filter(other=>other.alive&&teams.get(other.fleetId)!==f.team);
-  for(let i=0;i<alive.length;i++){const ship=alive[i],origin=snapshot.get(ship.id),brake=ship.maneuver?.brake_deceleration??CONFIG.acceleration,own=ship.velocity.length();
-    for(const other of candidates){const p=snapshot.get(other.id);if(!p)continue;const relative=p.clone().sub(origin),distance=relative.length();if(distance>reaches[i])continue;if(distance<1e-8){f.safetyStop=true;f.columnMode='BRAKE';f.pathBlockId=other.id;return;}const closing=-other.velocity.clone().sub(ship.velocity).dot(relative.multiplyScalar(1/distance)),brakingTime=own/Math.max(.001,brake);if(closing>0&&distance<=12+closing*(reaction+brakingTime*.5)){f.safetyStop=true;f.columnMode='BRAKE';f.pathBlockId=other.id;f.columnClearScans=0;return;}}
-  }
 }
 // Bounded local detours. The reference heading remains fixed until direct travel clears.
 function updateColumnRoute(f,index,snapshot,teams,constrained=false){
@@ -582,8 +567,8 @@ function updateColumnRoute(f,index,snapshot,teams,constrained=false){
 }
 function updateSafety(state,index,snapshot,dt){
   const teams=new Map(state.fleets.map(f=>[f.id,f.team]));
-  const config=state.columnBudgetLimits??COLUMN_STOP_CONFIG,budget={steps:0,checks:0,maxFleetSteps:config.maxFleetSteps??COLUMN_STOP_CONFIG.maxFleetSteps,maxBattleSteps:config.maxBattleSteps??COLUMN_STOP_CONFIG.maxBattleSteps,maxBattleChecks:config.maxBattleChecks??COLUMN_STOP_CONFIG.maxBattleChecks},count=state.fleets.length,offset=state.experimentalManeuver&&count?Math.floor(Math.round(state.time/CONFIG.dt)/ENCOUNTER_CONFIG.scanTicks)%count:0,fleets=offset?[...state.fleets.slice(offset),...state.fleets.slice(0,offset)]:state.fleets;
-  for(const f of fleets){if(f.tactics.policy==='COLUMN'){if(!f.columnMode||Math.round(state.time/CONFIG.dt)%ENCOUNTER_CONFIG.scanTicks===0){if(state.experimentalManeuver){updateColumnStop(f,index,snapshot,teams,budget);f.columnPlanUntil=state.time+ENCOUNTER_CONFIG.scanTicks*CONFIG.dt;}else updateColumnRoute(f,index,snapshot,teams,false);}else if(state.experimentalManeuver&&f.columnPlanUntil!==undefined&&state.time>f.columnPlanUntil+1e-9){f.safetyStop=true;f.columnMode='BRAKE';f.columnSafetyReason='UNKNOWN_EXPIRED';f.columnClearScans=0;}if(state.experimentalManeuver)guardColumnImmediate(f,index,snapshot,teams);continue;}if(f.tactics.policy!=='LINE'){f.safetyStop=false;f.pathBlockId=null;continue;}if(f.encounter.active&&f.encounter.lineEngaged){f.safetyStop=true;continue;}const separation=24;const target=f.encounter.active?f.encounter.target:f.destination,dir=target?target.clone().sub(f.anchor):vec();if(dir.lengthSq()>1e-9)dir.normalize();let stop=false,blocking=null;const ownSpeed=Math.max(0,f.velocity.dot(dir));
+  const scan=Math.round(state.time/CONFIG.dt)%ENCOUNTER_CONFIG.scanTicks===0;
+  for(const f of state.fleets){if(f.tactics.policy==='COLUMN'){if(state.experimentalManeuver)updateColumnStop(f,index,snapshot,teams,scan);else if(!f.columnMode||scan)updateColumnRoute(f,index,snapshot,teams,false);continue;}if(f.tactics.policy!=='LINE'){f.safetyStop=false;f.pathBlockId=null;continue;}if(f.encounter.active&&f.encounter.lineEngaged){f.safetyStop=true;continue;}const separation=24;const target=f.encounter.active?f.encounter.target:f.destination,dir=target?target.clone().sub(f.anchor):vec();if(dir.lengthSq()>1e-9)dir.normalize();let stop=false,blocking=null;const ownSpeed=Math.max(0,f.velocity.dot(dir));
     for(const ship of f.ships){if(!ship.alive)continue;if(!ship.safetyCandidates||Math.round(state.time/CONFIG.dt)%ENCOUNTER_CONFIG.scanTicks===0)ship.safetyCandidates=index.near(snapshot.get(ship.id),SAFETY_SEARCH);for(const enemy of ship.safetyCandidates){if(!enemy.alive||!snapshot.has(enemy.id))continue;
       if(teams.get(enemy.fleetId)===f.team)continue;const delta=snapshot.get(enemy.id).clone().sub(snapshot.get(ship.id)),distance=delta.length();if(distance<1e-8)continue;const toward=delta.multiplyScalar(1/distance),approach=dir.dot(toward);if(approach<=0.02)continue;
       let brake;if(state.experimentalManeuver){const ownClose=Math.max(0,ship.velocity.dot(toward)),enemyClose=Math.max(0,-enemy.velocity.dot(toward)),deceleration=ship.maneuver?.brake_deceleration??CONFIG.acceleration,brakingTime=ownClose/Math.max(.001,deceleration);brake=ownClose*ownClose/(2*deceleration)+enemyClose*brakingTime+(ownClose+enemyClose)*ENCOUNTER_CONFIG.scanTicks*CONFIG.dt;}else{const close=Math.max(0,ownSpeed*approach-enemy.velocity.dot(toward));brake=close*close/(2*CONFIG.anchorAcceleration)+close*dt;}const limit=separation+(f.safetyStop?1:0)+brake;if(distance<=limit){stop=true;blocking=enemy.id;break;}
@@ -820,7 +805,6 @@ export function step(state,dt=CONFIG.dt){
   const safetyStart=state.profile?performance.now():null;updateSafety(state,movementIndex,snapshot,dt);addProfile(state,'safety',safetyStart);
   for(const f of state.fleets){f.motionTime=(f.motionTime||0)+dt;moveAnchor(f,dt,state.experimentalManeuver===true);if(f.tactics.policy!=='COLUMN')updateColumnPath(f,false);const lineStart=state.profile?performance.now():null;updateLineOffsets(f,state,movementIndex,snapshot);addProfile(state,'lineOffsets',lineStart);const points=f.tactics.policy==='COLUMN'?(state.experimentalManeuver?constrainedColumnSlots(f):advanceColumnFormation(f,false)):slots(f);const aliveIndices=f.ships.map((ship,i)=>ship.alive?i:-1).filter(i=>i>=0);f.formationRatio=aliveIndices.length?aliveIndices.filter(i=>f.ships[i].position.distanceTo(points[i])<=.8&&f.ships[i].velocity.clone().sub(f.velocity).length()<=.5).length/aliveIndices.length:1;
     if(state.experimentalManeuver)f.motionSlotError=Math.max(0,...aliveIndices.map(i=>f.ships[i].position.distanceTo(points[i])));
-    if(state.experimentalManeuver&&f.tactics.policy==='COLUMN'){const leader=aliveIndices[0],gap=SPACING_LEVELS[f.spacingLevels.z],lag=Math.max(0,...aliveIndices.filter(i=>i!==leader).map(i=>f.ships[i].position.distanceTo(points[i])));if(lag>gap*1.5)f.columnRegroup=true;else if(lag<gap*.5)f.columnRegroup=false;}else f.columnRegroup=false;
     const slotVelocities=state.experimentalManeuver?formationSlotVelocities(f,points,dt):null;
     if(slotVelocities){f.motionVelocityError=Math.max(0,...aliveIndices.map(i=>f.ships[i].velocity.distanceTo(slotVelocities[i])));f.motionDemandRatio=Math.max(1,...aliveIndices.map(i=>slotVelocities[i].length()/Math.max(.001,(f.ships[i].forwardSpeed??CONFIG.shipSpeed)*.8)));f.motionHeadingError=Math.max(0,...aliveIndices.map(i=>{const v=slotVelocities[i];if(v.lengthSq()<.01)return 0;return vec(0,0,1).applyQuaternion(f.ships[i].rotation).angleTo(v);}));f.formationRatio=aliveIndices.length?aliveIndices.filter(i=>f.ships[i].position.distanceTo(points[i])<=.8&&f.ships[i].velocity.distanceTo(slotVelocities[i])<=.5).length/aliveIndices.length:1;}
     f.ships.forEach((s,i)=>{
@@ -829,8 +813,6 @@ export function step(state,dt=CONFIG.dt){
       for(const other of movementIndex.near(snapshot.get(s.id),CONFIG.spacing)){if(other===s)continue;const diff=snapshot.get(s.id).clone().sub(snapshot.get(other.id)),dist=diff.length();if(dist>1e-5&&dist<CONFIG.spacing)avoid.addScaledVector(diff,(CONFIG.spacing-dist)/dist);else if(dist<=1e-5){const sign=s.id.localeCompare(other.id)<0?-1:1;avoid.x+=sign*CONFIG.spacing;}}
       const target=points[i].clone().add(avoid.multiplyScalar(.35));
       if(s.evasion)target.add(s.evasion.offset);
-      if(state.experimentalManeuver&&f.tactics.policy==='COLUMN'&&f.safetyStop)target.copy(snapshot.get(s.id));
-      if(state.experimentalManeuver&&f.tactics.policy==='COLUMN'&&f.columnRegroup&&i===aliveIndices[0])target.copy(snapshot.get(s.id));
       let face=vec(0,0,1).applyQuaternion(f.rotation);
       if(f.tactics.policy==='POINT_DEFENSE'){
         const radial=points[i].clone().sub(f.anchor);radial.y=0;
@@ -838,7 +820,7 @@ export function step(state,dt=CONFIG.dt){
       }
       let up=vec(0,1,0);if(Math.abs(face.clone().normalize().dot(up))>.999)up=vec(1,0,0);
       const base=facing(face.clone().normalize(),up),aimStart=state.profile?performance.now():null,aimRotation=state.experimentalManeuver&&f.tactics.policy==='POINT_DEFENSE'&&f.encounter.active&&!f.encounter.arrived?null:aimFromBase(s,base,snapshot.get(s.id),state.experimentalManeuver===true);addProfile(state,'aimPlan',aimStart);
-      if(state.experimentalManeuver){const slotVelocity=slotVelocities[i],track=!f.safetyStop&&!(f.tactics.policy==='COLUMN'&&f.columnRegroup&&i===aliveIndices[0])&&slotVelocity.lengthSq()>1e-6;steerShip(s,target,dt,{mode:track?'TRACK':'STOP',targetVelocity:track?slotVelocity:null,face,aimRotation});}else steerMotion(s,target,dt,{speed:s.forwardSpeed??CONFIG.shipSpeed,face,feed:f.velocity,reverse:false,aimRotation,aimBase:base,aimAngles:s.aimDesiredAngles});
+      if(state.experimentalManeuver){const slotVelocity=slotVelocities[i],braking=f.tactics.policy==='COLUMN'&&f.safetyStop&&f.columnMode!=='HOLD',track=!f.safetyStop&&slotVelocity.lengthSq()>1e-6;steerShip(s,braking||f.safetyStop&&f.tactics.policy==='COLUMN'?snapshot.get(s.id):target,dt,{mode:braking?'BRAKE':track?'TRACK':'STOP',targetVelocity:track?slotVelocity:null,face,aimRotation});}else steerMotion(s,target,dt,{speed:s.forwardSpeed??CONFIG.shipSpeed,face,feed:f.velocity,reverse:false,aimRotation,aimBase:base,aimAngles:s.aimDesiredAngles});
       s.position.clamp(vec(BATTLEFIELD.min.x,BATTLEFIELD.min.y,BATTLEFIELD.min.z),vec(BATTLEFIELD.max.x,BATTLEFIELD.max.y,BATTLEFIELD.max.z));
     });
   }
