@@ -31,7 +31,7 @@ let selected = friendly[0];
 let draft = null, patrolEdit = null;
 let shipMode=null,manualPaused=false;
 const tacticLabels={COLUMN:'단종진',LINE:'일자진',BREAKTHROUGH:'어린진',POINT_DEFENSE:'원형진'};
-const tacticDescriptions={COLUMN:'종렬로 이동하며 경로의 적을 우회하거나 정지합니다.',LINE:'적을 향해 전면을 전개하고 교전합니다.',BREAKTHROUGH:'어린진을 형성해 전방의 적 진형을 돌파합니다.',POINT_DEFENSE:'조우 시 거점에 구형 진형을 구축합니다.'};
+const tacticDescriptions={COLUMN:state.experimentalManeuver?'종렬로 이동하며 경로가 막히면 정지하고, 경로가 열리면 재개합니다.':'종렬로 이동하며 경로의 적을 우회하거나 정지합니다.',LINE:'적을 향해 전면을 전개하고 교전합니다.',BREAKTHROUGH:'어린진을 형성해 전방의 적 진형을 돌파합니다.',POINT_DEFENSE:'조우 시 거점에 구형 진형을 구축합니다.'};
 const viewport=$('viewport');
 const viewportSize=()=>({width:Math.max(1,viewport.clientWidth),height:Math.max(1,viewport.clientHeight)});
 let activeCamera;

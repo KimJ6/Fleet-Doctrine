@@ -51,8 +51,44 @@ console.log('PASS active ray emits at ticks 3, 6, 9 and stops at 12');
   globalThis.__fleetDoctrineBVH=rt.BVH;
   const bvh=url('export const MeshBVH=globalThis.__fleetDoctrineBVH.MeshBVH;');
   const safetyText=(await readFile(new URL('../rigging-test/rig-safety.js',import.meta.url),'utf8')).replace("from 'three'","from '"+rt.threeURL+"'").replace("from 'three-mesh-bvh'","from '"+bvh+"'").replace("from './rig-control.js'","from '"+rig+"'");
-  const safetyModule=url(safetyText),adapterText=(await read('ship-rig-adapter.js')).replace("from '../rigging-test/rig-safety.js'","from '"+safetyModule+"'").replace("from '../rigging-test/rig-control.js'","from '"+rig+"'");
-  const {GameRigSafety,approximateMoveBatch}=await import(url(adapterText)),safety=new GameRigSafety(shipView,weapons);safety.confirmedNeutral=true;safety.captureConfirmedNeutralContacts();
+  const safetyModule=url(safetyText),adapterText=(await read('ship-rig-adapter.js')).replace("from 'three'","from '"+rt.threeURL+"'").replace("from '../rigging-test/rig-safety.js'","from '"+safetyModule+"'").replace("from '../rigging-test/rig-control.js'","from '"+rig+"'");
+  const {GameRigSafety,approximateMoveBatch}=await import(url(adapterText)),safety=new GameRigSafety(shipView,weapons,{assetHash:digest});safety.confirmedNeutral=true;safety.captureConfirmedNeutralContacts();
+  assert.equal(safety.neutralJointData.length,11);
+  for(const joint of safety.neutralJointData){assert.equal(joint.assetHash,digest);assert.equal(joint.status,'derived-candidate');assert.equal(joint.individualReview,'pending');assert.equal(joint.poseConfirmed,'all-joints-zero');assert.equal(joint.parts.length,2);assert(joint.region.radius>0);assert(joint.movement?.yaw&&joint.movement?.pitch);}
+  const unknown=new GameRigSafety(shipView,weapons,{assetHash:'unrecognized'});unknown.confirmedNeutral=true;unknown.captureConfirmedNeutralContacts();assert.equal(unknown.neutralJointData.length,0);assert.equal(unknown.neutralContacts.size,safety.neutralContacts.size);
+  // Explicit provenance must not change existing neutral-contact movement decisions.
+  for(const weapon of weapons)for(const [yaw,pitch] of [[5,0],[-5,0],[0,5]]){
+    const reset=()=>{for(const item of weapons){item.yaw=0;item.pitch=0;C.applyPose(item);}shipView.updateWorldMatrix(true,true);};
+    reset();const before=unknown.moveBatch([{weapon,yaw,pitch}]);
+    reset();const after=safety.moveBatch([{weapon,yaw,pitch}]);
+    assert.deepEqual({allowed:after.allowed,reason:after.reason,fraction:after.fraction},{allowed:before.allowed,reason:before.reason,fraction:before.fraction});
+  }
+  for(const weapon of weapons){weapon.yaw=0;weapon.pitch=0;C.applyPose(weapon);}shipView.updateWorldMatrix(true,true);
+  unknown.dispose();
+  console.log('PASS LC01 neutral contact provenance, hash scope and movement parity');
+  // The filtered real-asset pairs must remain separated for changing ship and
+  // joint rotations; the shared firing geometry must stay intact.
+  const filtered=new GameRigSafety(shipView,weapons,{filterMotionCandidates:true});
+  assert(filtered.motionExcludedPairs>0,'LC01 should have provably separated candidates');
+  assert.equal(filtered.parts.length,safety.parts.length);
+  const keys=pair=>pair.map(p=>p.mesh.name).sort().join('|');
+  const retained=new Set(filtered.dynamicPairs.map(keys));
+  const removed=safety.dynamicPairs.filter(pair=>!retained.has(keys(pair)));
+  assert.equal(removed.length,filtered.motionExcludedPairs);
+  let seed=42;const random=()=>((seed=(1664525*seed+1013904223)>>>0)/2**32);
+  for(let i=0;i<150;i++){
+    shipView.rotation.set(random()*6-3,random()*6-3,random()*6-3);
+    for(const weapon of weapons){weapon.yaw=weapon.settings.yaw[0]+random()*(weapon.settings.yaw[1]-weapon.settings.yaw[0]);weapon.pitch=random()*45;C.applyPose(weapon);}
+    safety.update();
+    for(const [a,b] of removed)assert(!a.box.intersectsBox(b.box),'removed pair overlaps at sampled pose: '+keys([a,b]));
+  }
+  shipView.rotation.set(0,0,0);for(const weapon of weapons){weapon.yaw=0;weapon.pitch=0;C.applyPose(weapon);}shipView.updateWorldMatrix(true,true);
+  for(const weapon of weapons)for(const node of weapon.muzzleNodes)assert.deepEqual(filtered.muzzleBlocked(node,{radius:.1,range:30}),safety.muzzleBlocked(node,{radius:.1,range:30}));
+  const changed=weapons[0].pivot, prior=changed.scale.x;changed.scale.x=prior*1.1;filtered.ensureMotionCandidates();
+  assert.equal(filtered.motionExcludedPairs,0,'changed scale invalidates filtering');
+  assert.equal(filtered.dynamicPairs.length,safety.dynamicPairs.length,'all candidates restored');
+  changed.scale.x=prior;filtered.dispose();
+  console.log('PASS LC01 conservative candidate filtering, invalidation and muzzle safety');
   const results=[];for(const weapon of weapons)for(const node of weapon.muzzleNodes)results.push({weapon,node,blocked:safety.muzzleBlocked(node,{radius:.1,range:30})});
   assert.equal(results.length,6);
   let selected=null;

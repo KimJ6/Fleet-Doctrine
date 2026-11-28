@@ -29,7 +29,7 @@ manager.setURLModifier(url=>/\.(png|jpe?g)(\?.*)?$/i.test(url)?`${assetRoot}Text
         weapon.combatState.aimCone=weapon.pivot?Math.min(Math.PI,THREE.MathUtils.degToRad(Math.max(...settings.yaw.map(Math.abs))+Math.max(...settings.pitch.map(Math.abs)))):.1;
         weapon.combatState.damage=weapon.balance?.damage??20;
       }}
-    const safety=new GameRigSafety(view,weapons);safety.confirmedNeutral=neutralConfirmed;if(neutralConfirmed)safety.captureConfirmedNeutralContacts();const entry={view,weapons,engines:rig.engines,safety,assetHash:digest,safe:neutralConfirmed&&rig.muzzleCount>0,reason:neutralConfirmed?'':'모델 해시가 일치하지 않아 사격 보류'};
+    const safety=new GameRigSafety(view,weapons,{assetHash:digest});safety.confirmedNeutral=neutralConfirmed;if(neutralConfirmed)safety.captureConfirmedNeutralContacts();const entry={view,weapons,engines:rig.engines,safety,assetHash:digest,safe:neutralConfirmed&&rig.muzzleCount>0,reason:neutralConfirmed?'':'모델 해시가 일치하지 않아 사격 보류'};
     if(!entry.safe&&!options.allowUnsafe){safety.dispose();throw Error('검증된 리깅 모델이 아닙니다.');}
     return {commit(){scene.add(view);views.set(s.id,view);rigs.set(s.id,entry);},rollback(){scene.remove(view);views.delete(s.id);rigs.delete(s.id);safety.dispose();}};
   };
