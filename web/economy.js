@@ -39,7 +39,7 @@ function deployReserves(state,prepareView){
     let view;try{view=prepareView(unit);if(!view||typeof view.commit!=='function'||typeof view.rollback!=='function')throw Error('모델을 준비할 수 없습니다.');view.commit();}
     catch(error){try{view?.rollback();}catch{}reserve.reason='모델 준비 실패: '+error.message;waiting++;continue;}
     if(!target){state.nextFleetId++;state.fleets.push(nextFleet);target=nextFleet;}
-    target.ships.push(unit);target.size.copy(sizeForSpacing(target.ships.length,target.spacingLevels));reserve.status='ACTIVE';reserve.fleetId=target.id;reserve.reason='';deployed++;
+    target.ships.push(unit);target.size.copy(sizeForSpacing(target.ships.length,target.spacingLevels,target.tactics.policy));reserve.status='ACTIVE';reserve.fleetId=target.id;reserve.reason='';deployed++;
   }
   const pending=state.reserves.filter(r=>r.status==='ASSIGNED');
   if(deployed)state.stalledDeployments=0;else if(waiting&&!state.fleets.some(f=>f.ships.some(s=>s.alive))&&pending.length&&pending.every(r=>r.reason==='시작 면에 배치 공간이 없습니다.'))state.stalledDeployments++;else state.stalledDeployments=0;

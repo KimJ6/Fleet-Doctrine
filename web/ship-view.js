@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { discoverRig, initializeWeapons, pitchRange } from '../rigging-test/rig-control.js';
-import { captureMuzzleChain, muzzlePoseFromData, buildWeaponAimSamples } from './simulation.js?v=movement-20261128i';
+import { captureMuzzleChain, muzzlePoseFromData, buildWeaponAimSamples } from './simulation.js?v=movement-20261129a';
 import { GameRigSafety } from './ship-rig-adapter.js?v=refactor-20261127c';
 
 export async function loadShipViews({state,balance,scene,views,rigs}){

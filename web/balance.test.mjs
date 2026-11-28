@@ -8,11 +8,10 @@ const read=inputs=>Object.fromEntries(names.map(name=>[name,balance.parseBalance
 const baseline=balance.validateBalanceTables(read(texts),1/60);
 assert.equal(baseline.ship.max_hp,Number(read(texts).ships.find(x=>x.ship_id==='LC01').max_hp));
 assert.ok(baseline.mounts.size>0);assert.ok(baseline.maxRange>0);
-assert.equal(baseline.ship.maneuver.max_reverse_speed,baseline.ship.forward_speed*.15);assert.equal(baseline.ship.maneuver.max_vertical_speed,baseline.ship.forward_speed*.1);
+assert.equal(baseline.ship.maneuver.max_vertical_speed,baseline.ship.forward_speed);assert.equal(baseline.ship.maneuver.brake_deceleration,baseline.ship.forward_speed*2);
 const expectBad=(name,value,pattern)=>assert.throws(()=>balance.validateBalanceTables(read({...texts,[name]:value}),1/60),pattern);
 expectBad('ships',texts.ships.replace('LC01,','LC01X,'),/함선 설정 오류|참조|LC01/);
-expectBad('ships',texts.ships.replace(',25,15,0.5,0.3',',90,15,0.5,0.3'),/기동 각도/);
-expectBad('ships',texts.ships.replace(',25,15,0.5,0.3',',25,15,0.5,1.1'),/선회 비율/);
+assert.equal(baseline.ship.maneuver.max_yaw_rate,2);
 expectBad('weapon_types',texts.weapon_types.replace('BOLT01,','BOLT02,'),/중복/);
 expectBad('game_rules',texts.game_rules.replace('victory_score,1000','victory_score,-1'),/값 오류/);
 const ray=texts.weapon_types.replace('RAY,5,10,48,3,0.2','RAY,5,10,48,3,0.21');

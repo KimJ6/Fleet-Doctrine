@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { CONFIG, COMMAND_GRID, BATTLEFIELD, ZONES, SCORE_CONFIG, zoneCounts, gridToWorld, worldToNearestGrid, insideBattlefield, setDestination, setMovementPolicy, setPatrolRoute, setCombatPolicy, setDefenseAnchor, gridToWorld as patrolPointWorld, ECONOMY_CONFIG, configureBalance, createEmptyFleet, purchaseShip, assignReserve, deployReserves, prepareEnemyAI, checkRecovery, initialState, slots, grid, dimensions, validateSize, sizeForSpacing, step, start } from './simulation.js?v=movement-20261128i';
+import { CONFIG, COMMAND_GRID, BATTLEFIELD, ZONES, SCORE_CONFIG, zoneCounts, gridToWorld, worldToNearestGrid, insideBattlefield, setDestination, setMovementPolicy, setPatrolRoute, setCombatPolicy, setDefenseAnchor, gridToWorld as patrolPointWorld, ECONOMY_CONFIG, configureBalance, createEmptyFleet, purchaseShip, assignReserve, deployReserves, prepareEnemyAI, checkRecovery, initialState, slots, grid, dimensions, validateSize, sizeForSpacing, step, start } from './simulation.js?v=movement-20261129a';
 import { approximateMoveBatch } from './ship-rig-adapter.js?v=refactor-20261127c';
-import { loadShipViews } from './ship-view.js?v=movement-20261128i';
-import { loadBalance } from './balance.js?v=movement-20261128i';
-import { createBattleCombat } from './weapon-combat.js?v=movement-20261128i';
+import { loadShipViews } from './ship-view.js?v=movement-20261129a';
+import { loadBalance } from './balance.js?v=movement-20261129a';
+import { createBattleCombat } from './weapon-combat.js?v=movement-20261129a';
 import { createEffects } from './effects.js?v=refactor-20261127d';
 import { createCameraInput } from './camera-input.js?v=refactor-20261127c';
-import { createStatusUI } from './status-ui.js?v=movement-20261128i';
+import { createStatusUI } from './status-ui.js?v=movement-20261129a';
 
 
 const $ = id => document.getElementById(id);
@@ -279,8 +279,8 @@ function removeEmptyFleet(fleet){
 }
 function transfer(id,other){
   if(state.phase!=='PREPARATION'||draft||patrolEdit||!other||other===selected)return;const source=selected,unit=source.ships.find(s=>s.id===id);if(!unit?.alive)return;
-  const otherSize=sizeForSpacing(other.ships.length+1,other.spacingLevels);if(!validateSize(other.ships.length+1,otherSize)){setError('대상 함대의 간격을 확인하세요.');return;}
-  source.ships.splice(source.ships.indexOf(unit),1);other.ships.push(unit);unit.fleetId=other.id;other.emptyDraft=false;source.size.copy(sizeForSpacing(source.ships.length,source.spacingLevels));other.size.copy(otherSize);chosenShip=null;
+  const otherSize=sizeForSpacing(other.ships.length+1,other.spacingLevels,other.tactics.policy);if(!validateSize(other.ships.length+1,otherSize,other.tactics.policy)){setError('대상 함대의 간격을 확인하세요.');return;}
+  source.ships.splice(source.ships.indexOf(unit),1);other.ships.push(unit);unit.fleetId=other.id;other.emptyDraft=false;source.size.copy(sizeForSpacing(source.ships.length,source.spacingLevels,source.tactics.policy));other.size.copy(otherSize);chosenShip=null;
   if(!source.ships.some(s=>s.alive)){removeEmptyFleet(source);selected=other;}
   shipMode=null;setError('');syncUI();updatePreview();
 }
@@ -296,14 +296,14 @@ function setEconomy(open){if(draft||patrolEdit)return;$('economy-menu').hidden=!
 function setFleetPanel(open){if(draft||patrolEdit)return;document.body.classList.toggle('fleet-open',open);$('toggle-fleet').setAttribute('aria-expanded',String(open));if(open&&innerWidth<900)setEconomy(false);resizeViewport();}
 $('toggle-economy').addEventListener('click',()=>setEconomy($('economy-menu').hidden));$('close-economy').addEventListener('click',()=>{setEconomy(false);$('toggle-economy').focus();});$('toggle-fleet').addEventListener('click',()=>setFleetPanel(!document.body.classList.contains('fleet-open')));$('close-fleet').addEventListener('click',()=>{setFleetPanel(false);$('toggle-fleet').focus();});
 $('reorder-ship').addEventListener('click',()=>{if(state.phase!=='PREPARATION'||draft||patrolEdit||!chosenShip)return;shipMode='reorder';refreshShips();});$('move-ship').addEventListener('click',()=>{if(state.phase!=='PREPARATION'||draft||patrolEdit||!chosenShip)return;shipMode='transfer';refreshShips();});$('cancel-ship').addEventListener('click',()=>{chosenShip=null;shipMode=null;refreshShips();});
-for(const button of document.querySelectorAll('[data-spacing]'))button.addEventListener('click',()=>{if(state.phase!=='PREPARATION'||draft||patrolEdit)return;const levels={x:button.dataset.spacing,y:button.dataset.spacing,z:button.dataset.spacing},size=sizeForSpacing(selected.ships.length,levels);if(!validateSize(selected.ships.length,size)){setError('이 간격은 현재 편성에 적용할 수 없습니다.');return;}selected.spacingLevels=levels;selected.size.copy(size);setError('');refreshInputs();updatePreview();updateStatus();});
+for(const button of document.querySelectorAll('[data-spacing]'))button.addEventListener('click',()=>{if(state.phase!=='PREPARATION'||draft||patrolEdit)return;const levels={x:button.dataset.spacing,y:button.dataset.spacing,z:button.dataset.spacing},size=sizeForSpacing(selected.ships.length,levels,selected.tactics.policy);if(!validateSize(selected.ships.length,size,selected.tactics.policy)){setError('이 간격은 현재 편성에 적용할 수 없습니다.');return;}selected.spacingLevels=levels;selected.size.copy(size);setError('');refreshInputs();updatePreview();updateStatus();});
 for(const group of document.querySelectorAll('[role=radiogroup]'))group.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key)||!event.target.matches('[role=radio]'))return;event.preventDefault();const buttons=[...group.querySelectorAll('[role=radio]')].filter(b=>!b.disabled),index=buttons.indexOf(event.target);if(!buttons.length)return;const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(['ArrowRight','ArrowDown'].includes(event.key)?1:-1)+buttons.length)%buttons.length;buttons[next].focus();buttons[next].click();});
 window.addEventListener('keydown',event=>{if(event.defaultPrevented||event.key!=='Escape'||draft||patrolEdit)return;if(chosenShip){chosenShip=null;shipMode=null;refreshShips();}else if(!$('economy-menu').hidden)setEconomy(false);else if(innerWidth<900)setFleetPanel(false);});
 for(const axis of ['x','y','z'])$(`spacing-${axis}`).addEventListener('change',event=>{
   if(state.phase!=='PREPARATION'||draft||patrolEdit){refreshInputs();return;}
   if(!event.target.matches('input[type=radio]'))return;const levels={...selected.spacingLevels,[axis]:event.target.value};
-  const size=sizeForSpacing(selected.ships.length,levels);
-  if(!validateSize(selected.ships.length,size)){setError('이 간격은 현재 대형에 적용할 수 없습니다.');refreshInputs();return;}
+  const size=sizeForSpacing(selected.ships.length,levels,selected.tactics.policy);
+  if(!validateSize(selected.ships.length,size,selected.tactics.policy)){setError('이 간격은 현재 대형에 적용할 수 없습니다.');refreshInputs();return;}
   selected.spacingLevels=levels;selected.size.copy(size);setError('');refreshInputs();updatePreview();
 });
 function syncUI(){
