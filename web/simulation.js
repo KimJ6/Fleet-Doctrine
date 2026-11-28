@@ -75,7 +75,7 @@ export function effectiveSpacing(level,policy){const value=SPACING_LEVELS[level]
 export function columnDimensions(n,levels){const gx=SPACING_LEVELS[levels.x],gy=SPACING_LEVELS[levels.y],gz=SPACING_LEVELS[levels.z];let x=1,y=1,best=[1,1];while(true){if(x===y)y++;else x++;const c=x*y;if(c>Math.floor(n/FORMATION_CONFIG.minColumnRanks))break;const ranks=Math.floor(n/c),width=(x-1)*gx,height=(y-1)*gy,length=(ranks-1)*gz;if(length>=FORMATION_CONFIG.minAspect*Math.max(width,height))best=[x,y];}return best;}
 function columnLayout(f){
   const key=[f.tactics.revision,f.spacingLevels.x,f.spacingLevels.y,f.spacingLevels.z,...f.ships.map(s=>s.id+':'+(s.collisionRadius??1.1))].join('|');
-  if(f.columnLayout?.key!==key){
+  if(f.columnLayout?.key!==key||f.ships.some(ship=>ship.alive&&!f.columnLayout.byId.has(ship.id))){
     const alive=f.ships.filter(s=>s.alive),[x,y]=columnDimensions(alive.length,f.spacingLevels),cells=[];
     for(let iy=0;iy<y;iy++)for(let ix=0;ix<x;ix++)cells.push({ix,iy,x:(ix-(x-1)/2)*SPACING_LEVELS[f.spacingLevels.x],y:(iy-(y-1)/2)*SPACING_LEVELS[f.spacingLevels.y]});
     cells.sort((a,b)=>(a.x*a.x+a.y*a.y)-(b.x*b.x+b.y*b.y)||a.iy-b.iy||a.ix-b.ix);
@@ -148,16 +148,16 @@ function rawSlotsInOrder(f){
 // Formation identity remains stable until the roster, policy or spacing changes.
 function assignSlots(f,points){
   const key=[f.tactics.revision,f.spacingLevels.x,f.spacingLevels.y,f.spacingLevels.z,...f.ships.map(s=>s.id)].join('|');
-  if(f.formationAssignment?.key!==key){
+  if(f.formationAssignment?.key!==key||f.ships.some(ship=>ship.alive&&!f.formationAssignment.byId.has(ship.id))){
     const candidates=[];for(const ship of f.ships)if(ship.alive)for(let i=0;i<points.length;i++)candidates.push({ship,i,cost:ship.position.distanceToSquared(points[i])});
     candidates.sort((a,b)=>a.cost-b.cost||a.ship.id.localeCompare(b.ship.id)||a.i-b.i);
     const byId=new Map(),used=new Set();for(const candidate of candidates)if(!byId.has(candidate.ship.id)&&!used.has(candidate.i)){byId.set(candidate.ship.id,candidate.i);used.add(candidate.i);}
     let scale=1;const alive=f.ships.filter(ship=>ship.alive&&byId.has(ship.id));for(let i=0;i<alive.length;i++)for(let j=0;j<i;j++){const distance=points[byId.get(alive[i].id)].distanceTo(points[byId.get(alive[j].id)]),needed=(alive[i].collisionRadius??1.1)+(alive[j].collisionRadius??1.1);if(distance>1e-9)scale=Math.max(scale,needed/distance);}
     f.formationAssignment={key,byId,scale};if(points.length){const local=points.map(p=>p.clone().sub(f.anchor).multiplyScalar(scale));f.size.copy(new THREE.Box3().setFromPoints(local).getSize(vec()));}f.slotVelocityHistory=null;
   }
-  return f.ships.map((ship,i)=>{const index=f.formationAssignment.byId.get(ship.id);const point=index===undefined?ship.position.clone():points[index].clone().sub(f.anchor).multiplyScalar(f.formationAssignment.scale).add(f.anchor);if(f.tactics.policy==='LINE'&&f.encounter.active)point.add(f.encounter.lineOffsets?.get(ship.id)||vec());return point;});
+  return f.ships.map((ship,i)=>{if(!ship.alive)return ship.position.clone();const index=f.formationAssignment.byId.get(ship.id);if(index===undefined||!points[index])throw Error('생존 함선의 진형 슬롯이 없습니다: '+ship.id);const point=points[index].clone().sub(f.anchor).multiplyScalar(f.formationAssignment.scale).add(f.anchor);if(f.tactics.policy==='LINE'&&f.encounter.active)point.add(f.encounter.lineOffsets?.get(ship.id)||vec());return point;});
 }
-function rawSlots(f){const points=rawSlotsInOrder(f);return f.tactics.policy==='COLUMN'?points:assignSlots(f,points);}
+function rawSlots(f){const points=rawSlotsInOrder(f);return f.tactics.policy==='COLUMN'?points.map((point,i)=>f.ships[i].alive?point:f.ships[i].position.clone()):assignSlots(f,points);}
 // Preserve the chosen center; try a bounded set of sphere orientations without clamping slots.
 function chooseDefenseRotation(f,center){
   const e=f.encounter,initial=e.defenseRotation.clone(),angles=[0,Math.PI/2,Math.PI,3*Math.PI/2];
@@ -222,13 +222,14 @@ function columnPathSlots(f){
     if(reverse||distance<required-1e-7){const hold=back===leader?front:back;if(hold!==leader)folded.add(hold.id);}
   }
   const key=[...folded].sort().join('|');if(key!==(f.columnFoldKey??'')){f.columnFoldKey=key;f.slotVelocityHistory=null;}f.columnFoldedIds=folded;
-  return f.ships.map(ship=>{const slot=layout.byId.get(ship.id);if(!slot)return ship.position.clone();if(ship===leader)return f.columnGoal?.clone()??ship.position.clone();return folded.has(ship.id)?ship.position.clone():proposed.get(ship.id);});
+  return f.ships.map(ship=>{if(!ship.alive)return ship.position.clone();const slot=layout.byId.get(ship.id);if(!slot)throw Error('생존 함선의 단종진 슬롯이 없습니다: '+ship.id);if(ship===leader)return f.columnGoal?.clone()??ship.position.clone();return folded.has(ship.id)?ship.position.clone():proposed.get(ship.id);});
 }
 // Goals are available immediately; movement, not interpolation of goals, forms the fleet.
 export function slots(f){return f.tactics.policy==='COLUMN'?(columnPathSlots(f)||rawSlots(f)):rawSlots(f);}
 // Consecutive slots of the same formation are differentiated; revisions must
 // never turn reassignment into an artificial high-speed goal.
 export function formationSlotVelocities(f,points,dt){
+  if(points.length!==f.ships.length||points.some(point=>!point?.isVector3))throw Error('함선별 진형 슬롯이 올바르지 않습니다: '+f.id);
   const revision=[f.tactics.revision,f.movement.revision,f.movement.policy,f.destinationIndex&&pointKey(f.destinationIndex),f.spacingLevels.x,f.spacingLevels.y,f.spacingLevels.z,f.columnGoalFinal,f.columnPath?.leaderId,...f.ships.map(s=>s.id+':'+s.alive+':'+(s.evasion?.threatId??''))].join('|');
   const previous=f.slotVelocityHistory,continuous=previous?.revision===revision;
   const velocities=points.map((point,i)=>continuous&&previous.points[i]?point.clone().sub(previous.points[i]).divideScalar(dt):f.velocity.clone());

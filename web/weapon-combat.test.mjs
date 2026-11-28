@@ -6,7 +6,7 @@ const spatial=url(await read('spatial-index.js')),hit=url(await read('hit-resolu
 const scoring=url((await read('scoring.js')).replace("from 'three'","from '"+rt.threeURL+"'"));
 const sim=url((await read('simulation.js')).replace("from 'three'","from '"+rt.threeURL+"'").replace('./spatial-index.js?v=refactor-20261127c',spatial).replace('./hit-resolution.js?v=refactor-20261127c',hit).replace('./economy.js?v=refactor-20261127c',economy).replace('./scoring.js?v=refactor-20261127c',scoring));
 const rig=url((await readFile(new URL('../rigging-test/rig-control.js',import.meta.url),'utf8')).replace("from 'three'","from '"+rt.threeURL+"'"));
-const weaponSource=(await read('weapon-combat.js')).replace("from 'three'","from '"+rt.threeURL+"'").replace('./simulation.js?v=movement-20261129c',sim).replace('../rigging-test/rig-control.js',rig);
+const weaponSource=(await read('weapon-combat.js')).replace("from 'three'","from '"+rt.threeURL+"'").replace('./simulation.js?v=movement-20261129d',sim).replace('../rigging-test/rig-control.js',rig);
 const {createBattleCombat}=await import(url(weaponSource));
 const muzzle=new T.Object3D();muzzle.name='muzzle';const data={id:'weapon',yaw:0,pitch:0,cooldown:1,activeRays:new Map([[0,{endTick:12,nextTick:3,length:20}]])};
 const w={combatState:data,muzzleChains:[{rootScale:new T.Vector3(1,1,1),parts:[]}],muzzleNodes:[muzzle],balance:{intervalTicks:3,damage:5,range:20},settings:{yaw:[-180,180],pitch:[0,45]},barrels:[],target:null};

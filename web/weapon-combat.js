@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CONFIG, muzzlePoseFromData, chooseCombatTarget } from './simulation.js?v=movement-20261129c';
+import { CONFIG, muzzlePoseFromData, chooseCombatTarget } from './simulation.js?v=movement-20261129d';
 import { applyPose, pitchRange } from '../rigging-test/rig-control.js';
 
 export function createBattleCombat({rigs,balance,approximateMoveBatch}){
