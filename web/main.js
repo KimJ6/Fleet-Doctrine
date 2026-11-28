@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { CONFIG, COMMAND_GRID, BATTLEFIELD, ZONES, SCORE_CONFIG, zoneCounts, gridToWorld, worldToNearestGrid, insideBattlefield, setDestination, setMovementPolicy, setPatrolRoute, setCombatPolicy, setDefenseAnchor, gridToWorld as patrolPointWorld, ECONOMY_CONFIG, configureBalance, createEmptyFleet, purchaseShip, assignReserve, deployReserves, prepareEnemyAI, checkRecovery, initialState, slots, grid, dimensions, validateSize, sizeForSpacing, step, start } from './simulation.js?v=tactics-20261128h';
+import { CONFIG, COMMAND_GRID, BATTLEFIELD, ZONES, SCORE_CONFIG, zoneCounts, gridToWorld, worldToNearestGrid, insideBattlefield, setDestination, setMovementPolicy, setPatrolRoute, setCombatPolicy, setDefenseAnchor, gridToWorld as patrolPointWorld, ECONOMY_CONFIG, configureBalance, createEmptyFleet, purchaseShip, assignReserve, deployReserves, prepareEnemyAI, checkRecovery, initialState, slots, grid, dimensions, validateSize, sizeForSpacing, step, start } from './simulation.js?v=movement-20261128i';
 import { approximateMoveBatch } from './ship-rig-adapter.js?v=refactor-20261127c';
-import { loadShipViews } from './ship-view.js?v=tactics-20261128h';
-import { loadBalance } from './balance.js?v=maneuver-20261128h';
-import { createBattleCombat } from './weapon-combat.js?v=tactics-20261128h';
+import { loadShipViews } from './ship-view.js?v=movement-20261128i';
+import { loadBalance } from './balance.js?v=movement-20261128i';
+import { createBattleCombat } from './weapon-combat.js?v=movement-20261128i';
 import { createEffects } from './effects.js?v=refactor-20261127d';
 import { createCameraInput } from './camera-input.js?v=refactor-20261127c';
-import { createStatusUI } from './status-ui.js?v=tactics-20261128g';
+import { createStatusUI } from './status-ui.js?v=movement-20261128i';
 
 
 const $ = id => document.getElementById(id);
@@ -15,7 +15,6 @@ const $ = id => document.getElementById(id);
 const initialization={phase:'LOADING_DATA',error:''};
 let balance=null,balanceError='';try{balance=await loadBalance(CONFIG.dt);configureBalance(balance);initialization.phase='LOADING_ASSETS';}catch(e){balanceError=e.message;initialization.phase='ERROR';initialization.error=e.message;}
 const state=initialState();
-state.experimentalManeuver=new URLSearchParams(location.search).get('maneuver')==='experimental';
 if(new URLSearchParams(location.search).get('profile')==='1')state.profile={ticks:0,shots:0,frames:0,ms:{},frameIntervals:[],frameSummary:null,wallMs:0,cappedMs:0,droppedStepMs:0};
 // Explicit opt-in benchmark scene; uses normal model, rig, weapon and rendering paths.
 if(state.profile&&new URLSearchParams(location.search).get('stress')==='64'){
@@ -31,7 +30,7 @@ let selected = friendly[0];
 let draft = null, patrolEdit = null;
 let shipMode=null,manualPaused=false;
 const tacticLabels={COLUMN:'단종진',LINE:'일자진',BREAKTHROUGH:'어린진',POINT_DEFENSE:'원형진'};
-const tacticDescriptions={COLUMN:state.experimentalManeuver?'종렬로 이동하며 경로가 막히면 정지하고, 경로가 열리면 재개합니다.':'종렬로 이동하며 경로의 적을 우회하거나 정지합니다.',LINE:'적을 향해 전면을 전개하고 교전합니다.',BREAKTHROUGH:'어린진을 형성해 전방의 적 진형을 돌파합니다.',POINT_DEFENSE:'조우 시 거점에 구형 진형을 구축합니다.'};
+const tacticDescriptions={COLUMN:'종렬로 이동하며 경로가 막히면 정지하고, 경로가 열리면 재개합니다.',LINE:'적을 향해 전면을 전개하고 교전합니다.',BREAKTHROUGH:'어린진을 형성해 전방의 적 진형을 돌파합니다.',POINT_DEFENSE:'조우 시 거점에 구형 진형을 구축합니다.'};
 const viewport=$('viewport');
 const viewportSize=()=>({width:Math.max(1,viewport.clientWidth),height:Math.max(1,viewport.clientHeight)});
 let activeCamera;

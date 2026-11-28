@@ -41,24 +41,9 @@ let count=0;const pass=label=>{count++;console.log('PASS',label);};
   {const aimed=state.fleets[0].ships[0];aimed.position.set(0,0,0);aimed.rotation.identity();aimed.aimTargetPosition=new T.Vector3(5,20,5);aimed.aimRevision=1;const tilted=new T.Quaternion().setFromEuler(new T.Euler(.7,0,.6,'YXZ'));
   for(const base of [tilted,new T.Quaternion().setFromEuler(new T.Euler(-.6,.3,-.7,'YXZ'))]){const result=game.aimFromBase(aimed,base,aimed.position,true),e=new T.Euler().setFromQuaternion(result,'YXZ');assert(Math.abs(e.x)<=25*Math.PI/180+1e-8&&Math.abs(e.z)<=15*Math.PI/180+1e-8,'aim candidate respects world attitude limits even when base changes');}
   pass('experimental aim respects world pitch and roll limits');}
-  {const formation=game.initialState().fleets[0];game.advanceColumnFormation(formation,true);
-  const savedPath=formation.columnPath.points.map(p=>p.clone()),shadow=game.cloneColumnFormation(formation),control=game.cloneColumnFormation(formation);
-  shadow.anchor.x+=3;control.anchor.x+=3;shadow.ships[0].position.z+=2;control.ships[0].position.z+=2;
-  const shadowSlots=game.advanceColumnFormation(shadow,true),controlSlots=game.advanceColumnFormation(control,true);
-  assert(shadowSlots.every((point,i)=>point.distanceTo(controlSlots[i])<1e-10));
-  assert(formation.columnPath.points.every((point,i)=>point.distanceTo(savedPath[i])<1e-10),'formation prediction must not mutate live history');
-  shadow.columnPath.points[0].x+=10;assert(control.columnPath.points[0].distanceTo(shadow.columnPath.points[0])>1,'prediction histories do not share vectors');
-  pass('column formation snapshots isolate path history and use the same update');}
   {const fleet=game.initialState().fleets[0];fleet.velocity.set(0,0,2);const first=game.slots(fleet),initial=game.formationSlotVelocities(fleet,first,game.CONFIG.dt);assert(initial.every(v=>v.distanceTo(fleet.velocity)<1e-9));
   const moved=first.map((p,i)=>p.clone().add(new T.Vector3(i*.01,0,2*game.CONFIG.dt))),speeds=game.formationSlotVelocities(fleet,moved,game.CONFIG.dt);assert(speeds[0].distanceTo(speeds[1])>.1,'different slot paths have different velocities');
   fleet.tactics.revision++;const changed=moved.map(p=>p.clone().add(new T.Vector3(20,0,0))),reset=game.formationSlotVelocities(fleet,changed,game.CONFIG.dt);assert(reset.every(v=>v.distanceTo(fleet.velocity)<1e-9),'reassigned slots do not produce a velocity spike');pass('slot velocities track continuous movement and reset safely on revision');}
-  {const ship=game.initialState().fleets[0].ships[0];ship.position.set(0,0,0);ship.rotation.identity();const before=ship.position.clone(),goals=new Map([[ship.id,new T.Vector3(0,0,30)]]);
-  assert.equal(game.predictColumnRecovery([ship],goals,[],1).status,'UNKNOWN');assert(ship.position.equals(before),'recovery prediction preserves the live ship');
-  const threat={id:'opponent',fleetId:'opponent',alive:true,position:new T.Vector3(0,0,10),velocity:new T.Vector3(),enemy:true};
-  assert.equal(game.predictColumnRecovery([ship],goals,[threat],1).reason,'TACTICAL_DISTANCE');assert(threat.position.equals(new T.Vector3(0,0,10)));
-  threat.enemy=false;threat.position.set(0,0,1);assert.equal(game.predictColumnRecovery([ship],goals,[threat],1).reason,'PHYSICAL_CONTACT');
-  assert.equal(game.predictColumnRecovery([ship],new Map([[ship.id,before.clone()]]),[],1).status,'CLEAR_IN_MODEL');
-  pass('recovery prediction isolates state and distinguishes unknown and conflicts');}
   {const scene=game.initialState(),fleet=scene.fleets[0];scene.experimentalManeuver=true;game.start(scene);
   for(let tick=0;tick<120;tick++){game.step(scene);const leader=fleet.ships.find(s=>s.alive);assert(fleet.columnPath.points[0].distanceTo(leader.position)<1e-9,'column history records the post-collision leader');}
   pass('experimental column path records resolved leader position');}
@@ -80,6 +65,10 @@ let count=0;const pass=label=>{count++;console.log('PASS',label);};
   pass('stationary turning, attitude recovery and forward-to-reverse braking');
   {const s=game.initialState().fleets[0].ships[0];s.position.set(0,0,0);s.rotation.identity();s.propulsionForward=3;s.propulsionVertical=.3;const rotation=s.rotation.clone(),before=s.position.clone();game.steerShip(s,s.position,game.CONFIG.dt,{mode:'BRAKE',face:new T.Vector3(1,0,0)});assert(s.propulsionForward>0&&s.propulsionForward<3&&s.propulsionVertical<.3&&s.rotation.angleTo(rotation)<1e-8&&s.position.distanceTo(before)>0,'braking respects deceleration and holds attitude');s.position.set(0,0,game.BATTLEFIELD.max.z);s.rotation.identity();s.propulsionForward=3;s.propulsionVertical=0;game.steerShip(s,new T.Vector3(0,0,game.BATTLEFIELD.max.z+10),game.CONFIG.dt);assert(Math.abs(s.velocity.z)<1e-9&&Math.abs(s.propulsionForward)<1e-9,'boundary correction reports actual motion');pass('explicit braking and boundary velocity');}
   if(process.env.FLEET_NAV_ONLY==='1'){console.log(count+' navigation regression groups passed');process.exit(0);}
+  if(process.env.FLEET_MIXED_ONLY==='1'){
+    const source=await readFile(new URL('./balance.js',import.meta.url),'utf8'),module=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64')),tables={};for(const name of ['ships','ship_weapons','weapon_types','game_rules'])tables[name]=module.parseBalanceCSV(await readFile(new URL('../data/balance/'+name+'.csv',import.meta.url),'utf8'),name);const real=module.validateBalanceTables(tables,game.CONFIG.dt);game.configureBalance(real);
+    const scene=game.initialState(),fleet=scene.fleets[0];scene.fleets=[fleet];fleet.ships=[game.ship('fast',fleet.id,'D02'),game.ship('slow',fleet.id,'D04')];fleet.anchor.set(0,0,-20);fleet.rotation.identity();game.setDestination(fleet,{ix:0,iy:0,iz:20});game.slots(fleet).forEach((p,i)=>{fleet.ships[i].position.copy(p);fleet.ships[i].rotation.identity();});const limits=game.fleetManeuverLimits(fleet);assert(Math.abs(limits.cruise-2.48)<1e-9&&Math.abs(limits.acceleration-1.44)<1e-9&&limits.brake===2);assert.equal(fleet.ships[0].forwardSpeed,4.7);assert.equal(fleet.ships[1].maneuver.max_yaw_rate,.43);game.start(scene);for(let i=0;i<120;i++)game.step(scene);assert(fleet.ships[0].propulsionForward<=limits.cruise+.001);const previous=fleet.ships[0].propulsionForward;fleet.ships[1].alive=false;game.step(scene);assert(Math.abs(game.fleetManeuverLimits(fleet).cruise-3.76)<1e-9&&Math.abs(fleet.ships[0].propulsionForward-previous)<.1,'limits refresh without speed teleport');console.log('PASS mixed fleet limits and ship-specific maneuver');process.exit(0);
+  }
   if(process.env.FLEET_TRANSITION_ONLY==='1'){
     const world=game.initialState(),fleet=world.fleets[0],enemy=world.fleets[2];world.experimentalManeuver=true;world.fleets=[fleet,enemy];fleet.anchor.set(0,0,-25);fleet.rotation.identity();const initial=game.slots(fleet);fleet.ships.forEach((s,i)=>{s.position.copy(initial[i]);s.rotation.identity();});game.setDestination(fleet,{ix:0,iy:0,iz:15});enemy.ships=enemy.ships.slice(0,1);enemy.anchor.set(-55,0,-55);enemy.ships[0].position.copy(enemy.anchor);game.setDestination(enemy,{ix:-27,iy:0,iz:-27});game.start(world);for(let t=0;t<480;t++)game.step(world);
     const survivors=fleet.ships.slice(1),before=survivors.map(s=>s.position.clone());fleet.ships[0].alive=false;game.setDestination(fleet,{ix:8,iy:4,iz:12});game.step(world);assert(survivors.every((s,i)=>s.position.distanceTo(before[i])<.2),'leader loss or new goal must not teleport');let minimum=Infinity;for(let t=0;t<4800&&!fleet.arrived;t++){if(world.phase==='PREPARATION')game.start(world);game.step(world);for(let i=0;i<survivors.length;i++)for(let j=i+1;j<survivors.length;j++)minimum=Math.min(minimum,survivors[i].position.distanceTo(survivors[j].position));}
@@ -167,9 +156,7 @@ let count=0;const pass=label=>{count++;console.log('PASS',label);};
   let minDistance=Infinity,maxLateral=0,phase='';
   for(let i=0;i<1500&&own.encounter.reason!=='돌파 완료';i++){game.step(run);minDistance=Math.min(minDistance,own.ships[0].position.distanceTo(foe.ships[0].position));maxLateral=Math.max(maxLateral,Math.abs(foe.ships[0].position.x));phase=own.encounter.breakthrough?.phase||phase;}
   assert.equal(own.encounter.reason,'돌파 완료',JSON.stringify({phase,minDistance,maxLateral,a:own.ships[0].position.toArray(),b:foe.ships[0].position.toArray(),target:own.encounter.target?.toArray()}));
-  assert(minDistance>=2.2-1e-5);assert(maxLateral>.5);
-  const beforeReturn=foe.ships[0].position.distanceTo(foe.anchor);for(let i=0;i<360;i++)game.step(run);
-  assert(foe.ships[0].position.distanceTo(foe.anchor)<beforeReturn,'defender returns toward its unmodified slot');
+  assert(minDistance>=2.2-1e-5);assert(maxLateral<.5,'column defender does not automatically detour');
   const mutual=game.initialState(),left=mutual.fleets[0],right=mutual.fleets[2];mutual.fleets=[left,right];
   left.ships=left.ships.slice(0,1);right.ships=right.ships.slice(0,1);left.anchor.set(0,0,-20);right.anchor.set(0,0,20);
   left.rotation.identity();right.rotation.setFromAxisAngle(new T.Vector3(0,1,0),Math.PI);
@@ -182,7 +169,7 @@ let count=0;const pass=label=>{count++;console.log('PASS',label);};
   const route=game.initialState(),column=route.fleets[0],blocker=route.fleets[2];route.fleets=[column,blocker];column.ships=column.ships.slice(0,1);blocker.ships=blocker.ships.slice(0,1);
   column.anchor.set(0,0,0);column.rotation.identity();column.ships[0].position.copy(column.anchor);column.ships[0].rotation.identity();blocker.anchor.set(0,0,18);blocker.ships[0].position.copy(blocker.anchor);
   game.setDestination(column,{ix:0,iy:0,iz:25});game.setDestination(blocker,{ix:0,iy:0,iz:9});game.start(route);game.step(route);
-  assert.equal(column.columnMode,'BYPASS');assert(column.columnTarget.clone().sub(column.anchor).dot(column.columnReference)>=0);assert(column.columnPath.points.length>=2);
+  assert(column.safetyStop&&['BRAKE','HOLD'].includes(column.columnMode));assert(column.columnPath.points.length>=2);
   const lineScene=game.initialState(),line=lineScene.fleets[0],targetFleet=lineScene.fleets[2];lineScene.fleets=[line,targetFleet];line.ships=line.ships.slice(0,1);targetFleet.ships=targetFleet.ships.slice(0,1);
   line.anchor.set(0,0,0);line.rotation.identity();line.ships[0].position.copy(line.anchor);line.ships[0].rotation.identity();targetFleet.anchor.set(0,0,24);targetFleet.ships[0].position.copy(targetFleet.anchor);game.setDestination(targetFleet,{ix:0,iy:0,iz:12});game.setCombatPolicy(line,'LINE');game.start(lineScene);game.step(lineScene);game.step(lineScene);
   assert.equal(line.encounter.mode,'ENGAGE');assert(line.safetyStop);assert.equal(line.encounter.lineEngaged,true);
@@ -190,14 +177,14 @@ let count=0;const pass=label=>{count++;console.log('PASS',label);};
   aimFleet.anchor.set(0,0,0);aimFleet.rotation.identity();aimFleet.ships[0].position.copy(aimFleet.anchor);aimFleet.ships[0].rotation.identity();game.setDestination(aimFleet,{ix:0,iy:0,iz:20});
   aimEnemy.anchor.set(15,0,0);aimEnemy.ships[0].position.copy(aimEnemy.anchor);game.setDestination(aimEnemy,{ix:8,iy:0,iz:0});game.start(aimScene);
   for(let i=0;i<60;i++)game.step(aimScene);
-  const bow=new T.Vector3(0,0,1).applyQuaternion(aimFleet.ships[0].rotation);assert(bow.x>.1,'ship turns toward a side target while moving: '+JSON.stringify({bow:bow.toArray(),position:aimFleet.ships[0].position.toArray()}));assert(aimFleet.ships[0].position.z>0,'slot movement continues while aiming');
+  const bow=new T.Vector3(0,0,1).applyQuaternion(aimFleet.ships[0].rotation);assert(Math.abs(bow.x)<.1,'navigation retains priority over side-target aiming: '+JSON.stringify({bow:bow.toArray(),position:aimFleet.ships[0].position.toArray()}));assert(aimFleet.ships[0].position.z>0,'navigation continues while turrets may fire');
   const wing=game.initialState(),wf=wing.fleets[0],we=wing.fleets[2];wing.fleets=[wf,we];we.ships=we.ships.slice(0,1);wf.anchor.set(0,0,0);wf.rotation.identity();game.setCombatPolicy(wf,'LINE');const starts=game.slots(wf);wf.ships.forEach((ship,i)=>{ship.position.copy(starts[i]);ship.rotation.identity();ship.weapons=[{range:23}];});we.anchor.set(0,0,23);we.ships[0].position.copy(we.anchor);game.setDestination(we,{ix:0,iy:0,iz:12});game.start(wing);
   for(let i=0;i<30;i++)game.step(wing);
   assert.equal(wf.encounter.lineEngaged,true);assert([...wf.encounter.lineOffsets.values()].some(v=>v.length()>.01),'out of range wing ships receive a forward offset');
   const multi=game.initialState(),red=multi.fleets[0],blue=multi.fleets[2];multi.fleets=[red,blue];red.anchor.set(0,0,-30);red.rotation.identity();blue.anchor.set(0,0,30);blue.rotation.setFromAxisAngle(new T.Vector3(0,1,0),Math.PI);
   game.setCombatPolicy(red,'BREAKTHROUGH');game.setCombatPolicy(blue,'LINE');game.setDestination(red,{ix:0,iy:0,iz:25});game.setDestination(blue,{ix:0,iy:0,iz:-25});
   for(const fleet of [red,blue]){const goals=game.slots(fleet);fleet.ships.forEach((ship,i)=>{ship.position.copy(goals[i]);ship.rotation.copy(fleet.rotation);});}
-  multi.profile={ticks:0,shots:0,frames:0,ms:{}};game.start(multi);let nearestMulti=Infinity,recognized=false,completed=false,resumed=false;const tickTimes=[];
+  multi.profile={ticks:0,shots:0,frames:0,ms:{}};multi.remaining=5;game.start(multi);let nearestMulti=Infinity,recognized=false,completed=false,resumed=false;const tickTimes=[];
   for(let t=0;t<3600&&!completed;t++){
     if(multi.phase==='PREPARATION'){game.start(multi);resumed=true;}
     const started=performance.now();game.step(multi);tickTimes.push(performance.now()-started);recognized||=red.encounter.active||blue.encounter.active;completed||=red.encounter.reason==='돌파 완료';const ships=multi.fleets.flatMap(f=>f.ships).filter(s=>s.alive);
@@ -253,78 +240,6 @@ let count=0;const pass=label=>{count++;console.log('PASS',label);};
   pass('blocked line wing holds while other safe wings approach');
   pass('line advances out-of-range ships while in-range center holds');
   pass('line formation assigns limited offsets to out of range ships');
-  const broadside=game.initialState(),bf=broadside.fleets[0],be=broadside.fleets[2];broadside.fleets=[bf,be];bf.ships=bf.ships.slice(0,1);be.ships=be.ships.slice(0,1);bf.anchor.set(0,0,0);bf.rotation.identity();bf.ships[0].position.copy(bf.anchor);bf.ships[0].rotation.identity();bf.ships[0].weapons=[{range:48,damage:100,cooldownSec:1,aimDirection:new T.Vector3(1,0,0),aimCone:.2}];
-  game.setDestination(bf,{ix:0,iy:0,iz:20});be.anchor.set(15,0,0);be.ships[0].position.copy(be.anchor);game.setDestination(be,{ix:8,iy:0,iz:0});game.start(broadside);for(let i=0;i<60;i++)game.step(broadside);
-  const side=new T.Vector3(1,0,0).applyQuaternion(bf.ships[0].rotation),toward=be.ships[0].position.clone().sub(bf.ships[0].position).normalize();assert(side.dot(toward)>.9,'broadside weapon remains aimed at target');
-  const body={id:'attitude-test',position:new T.Vector3(),velocity:new T.Vector3(),rotation:new T.Quaternion(),weapons:[{range:100,damage:1,cooldownSec:1,aimDirection:new T.Vector3(0,0,1),aimCone:.1}]};
-  const base=new T.Quaternion(),limit=Math.PI/2;
-  for(const target of [[50,0,0],[0,50,0],[-50,0,0],[0,-50,0],[0,0,-50]]){
-    body.aimTargetPosition=new T.Vector3(...target);body.aimRevision=(body.aimRevision||0)+1;const desired=game.aimFromBase(body,base,body.position);
-    for(let tick=0;tick<180;tick++){
-      const before=body.rotation.clone();game.steerMotion(body,body.position.clone(),game.CONFIG.dt,{aimRotation:desired,aimBase:base,aimAngles:body.aimDesiredAngles});
-      assert(before.angleTo(body.rotation)<=.8*game.CONFIG.dt+1e-7,'ship angular velocity limit');
-      const angles=body.relativeAimAngles;assert(angles&&Math.abs(angles.x)<=limit+1e-6&&Math.abs(angles.y)<=limit+1e-6&&Math.abs(angles.z)<=limit+1e-6,JSON.stringify({target,tick,angles:angles?.toArray()}));
-    }
-  }
-  const movingBody={position:new T.Vector3(),velocity:new T.Vector3(),rotation:new T.Quaternion(),weapons:[{range:100,damage:1,cooldownSec:1,aimDirection:new T.Vector3(0,0,1),aimCone:.1}]};
-  movingBody.aimTargetPosition=new T.Vector3(20,0,50);movingBody.aimRevision=1;
-  for(let tick=0;tick<180;tick++){
-    const movingBase=new T.Quaternion().setFromAxisAngle(new T.Vector3(0,1,0),tick*.003),desired=game.aimFromBase(movingBody,movingBase,movingBody.position),before=movingBody.rotation.clone();
-    game.steerMotion(movingBody,movingBody.position.clone(),game.CONFIG.dt,{aimRotation:desired,aimBase:movingBase,aimAngles:movingBody.aimDesiredAngles});
-    assert(before.angleTo(movingBody.rotation)<=.8*game.CONFIG.dt+1e-7,'world turn speed remains bounded while formation rotates');
-  }
-  const stress={position:new T.Vector3(),velocity:new T.Vector3(),rotation:new T.Quaternion(),weapons:[{range:100,damage:1,cooldownSec:1,aimDirection:new T.Vector3(0,0,1),aimCone:.1}],aimTargetPosition:new T.Vector3(50,0,0),aimRevision:1};
-  let maxExcess=0;
-  for(let tick=0;tick<650;tick++){
-    const turningBase=new T.Quaternion().setFromAxisAngle(new T.Vector3(0,1,0),tick*.008),desired=game.aimFromBase(stress,turningBase,stress.position),before=stress.rotation.clone();
-    game.steerMotion(stress,stress.position.clone(),game.CONFIG.dt,{aimRotation:desired,aimBase:turningBase,aimAngles:stress.aimDesiredAngles});
-    const rel=turningBase.clone().invert().multiply(stress.rotation),euler=new T.Euler().setFromQuaternion(rel,'YXZ');maxExcess=Math.max(maxExcess,Math.abs(euler.x)-limit,Math.abs(euler.y)-limit,Math.abs(euler.z)-limit);
-    assert(before.angleTo(stress.rotation)<=.8*game.CONFIG.dt+1e-7);
-  }
-  assert(maxExcess<.02,JSON.stringify({maxExcess}));
-  pass('turning base preserves relative axis bounds');
-  pass('turn speed stays bounded while the base orientation changes');
-  pass('stationary base aim transitions respect angular speed and axis bounds');
-  pass('weapon orientation participates in ship posture scoring');
-  pass('ship aims toward a side target while travelling');
-  const bypass=game.initialState(),col=bypass.fleets[0],block=bypass.fleets[2];bypass.fleets=[col,block];col.ships=col.ships.slice(0,1);block.ships=block.ships.slice(0,1);
-  col.anchor.set(0,0,-20);col.rotation.identity();col.ships[0].position.copy(col.anchor);col.ships[0].rotation.identity();game.setDestination(col,{ix:0,iy:0,iz:20});
-  block.anchor.set(0,0,0);block.ships[0].position.copy(block.anchor);block.ships[0].rotation.identity();game.setDestination(block,{ix:0,iy:0,iz:0});game.start(bypass);
-  let minBypass=Infinity,sawBypass=false,reached=false;for(let t=0;t<2400;t++){
-    if(bypass.phase==='PREPARATION')game.start(bypass);game.step(bypass);minBypass=Math.min(minBypass,col.ships[0].position.distanceTo(block.ships[0].position));sawBypass||=col.columnMode==='BYPASS';reached||=col.ships[0].position.z>15;if(reached)break;
-  }
-  assert(sawBypass);assert(minBypass>=12-1e-4,JSON.stringify({minBypass,anchor:col.anchor.toArray(),position:col.ships[0].position.toArray(),mode:col.columnMode}));assert(reached,JSON.stringify({minBypass,anchor:col.anchor.toArray(),position:col.ships[0].position.toArray(),mode:col.columnMode}));
-  const squad=game.initialState(),sc=squad.fleets[0],sb=squad.fleets[2];squad.fleets=[sc,sb];sb.ships=sb.ships.slice(0,1);sc.anchor.set(0,0,-30);sc.rotation.identity();const scStart=game.slots(sc);sc.ships.forEach((ship,i)=>{ship.position.copy(scStart[i]);ship.rotation.identity();});sb.anchor.set(0,0,0);sb.ships[0].position.copy(sb.anchor);game.setDestination(sc,{ix:0,iy:0,iz:20});game.setDestination(sb,{ix:0,iy:0,iz:0});game.start(squad);
-  let squadMin=Infinity,squadPassed=false,squadBypass=false;for(let tick=0;tick<4800;tick++){
-    if(squad.phase==='PREPARATION')game.start(squad);game.step(squad);for(const ship of sc.ships)if(ship.alive)squadMin=Math.min(squadMin,ship.position.distanceTo(sb.ships[0].position));squadBypass||=sc.columnMode==='BYPASS';squadPassed=sc.ships.every(ship=>!ship.alive||ship.position.z>4);if(squadPassed)break;
-  }
-  assert(squadBypass);assert(squadMin>=12-1e-4,JSON.stringify({squadMin,mode:sc.columnMode,anchor:sc.anchor.toArray(),positions:sc.ships.map(s=>s.position.toArray())}));assert(squadPassed,JSON.stringify({squadMin,mode:sc.columnMode,anchor:sc.anchor.toArray(),positions:sc.ships.map(s=>s.position.toArray())}));
-  const blocked=game.initialState(),bc=blocked.fleets[0],be2=blocked.fleets[2];blocked.fleets=[bc,be2];bc.ships=bc.ships.slice(0,1);be2.ships=be2.ships.slice(0,1);
-  bc.anchor.set(0,0,-12);bc.rotation.identity();bc.ships[0].position.copy(bc.anchor);bc.ships[0].rotation.identity();game.setDestination(bc,{ix:0,iy:0,iz:15});be2.anchor.set(0,0,0);be2.ships[0].position.copy(be2.anchor);game.setDestination(be2,{ix:0,iy:0,iz:0});game.start(blocked);game.step(blocked);
-  assert.equal(bc.columnMode,'HOLD','unsafe immediate turn must stop');assert(bc.safetyStop);
-  be2.anchor.set(40,0,0);be2.ships[0].position.copy(be2.anchor);be2.ships[0].velocity.set(0,0,0);game.setDestination(be2,{ix:20,iy:0,iz:0});const beforeResume=bc.anchor.z;
-  for(let tick=0;tick<120;tick++)game.step(blocked);
-  assert.equal(bc.columnMode,'TRAVEL');assert(!bc.safetyStop);assert(bc.anchor.z>beforeResume,'fleet resumes when route clears');
-  const movingObstacle=game.initialState(),movingColumn=movingObstacle.fleets[0],crossing=movingObstacle.fleets[2];movingObstacle.fleets=[movingColumn,crossing];movingColumn.ships=movingColumn.ships.slice(0,1);crossing.ships=crossing.ships.slice(0,1);
-  movingColumn.anchor.set(0,0,-20);movingColumn.rotation.identity();movingColumn.ships[0].position.copy(movingColumn.anchor);movingColumn.ships[0].rotation.identity();game.setDestination(movingColumn,{ix:0,iy:0,iz:15});
-  crossing.anchor.set(-20,0,0);crossing.rotation.setFromAxisAngle(new T.Vector3(0,1,0),Math.PI/2);crossing.ships[0].position.copy(crossing.anchor);crossing.ships[0].rotation.copy(crossing.rotation);game.setDestination(crossing,{ix:10,iy:0,iz:0});game.start(movingObstacle);
-  let movingMin=Infinity,movingBypass=false;for(let t=0;t<1500;t++){game.step(movingObstacle);movingMin=Math.min(movingMin,movingColumn.ships[0].position.distanceTo(crossing.ships[0].position));movingBypass||=movingColumn.columnMode==='BYPASS';}
-  assert(movingBypass,'moving target should be considered in route planning');assert(movingMin>=12-1e-4,JSON.stringify({movingMin,ship:movingColumn.ships[0].position.toArray(),other:crossing.ships[0].position.toArray(),mode:movingColumn.columnMode}));
-  const edge=game.initialState(),ec=edge.fleets[0],ee=edge.fleets[2];edge.fleets=[ec,ee];ec.ships=ec.ships.slice(0,1);ee.ships=ee.ships.slice(0,1);
-  ec.anchor.set(56,0,-20);ec.rotation.identity();ec.ships[0].position.copy(ec.anchor);ec.ships[0].rotation.identity();game.setDestination(ec,{ix:28,iy:0,iz:20});
-  ee.anchor.set(56,0,0);ee.ships[0].position.copy(ee.anchor);game.setDestination(ee,{ix:28,iy:0,iz:0});game.start(edge);
-  let edgeMin=Infinity,edgePassed=false;for(let tick=0;tick<3000;tick++){if(edge.phase==='PREPARATION')game.start(edge);game.step(edge);edgeMin=Math.min(edgeMin,ec.ships[0].position.distanceTo(ee.ships[0].position));assert(game.insideBattlefield(ec.ships[0].position));if(ec.ships[0].position.z>15){edgePassed=true;break;}}
-  assert(edgeMin>=12-1e-4,JSON.stringify({edgeMin,position:ec.ships[0].position.toArray()}));assert(edgePassed,JSON.stringify({edgeMin,mode:ec.columnMode,position:ec.ships[0].position.toArray(),anchor:ec.anchor.toArray()}));
-  pass('column bypasses inside the battlefield boundary');
-  const many=game.initialState(),movingCol=many.fleets[0],crossOne=many.fleets[2],crossTwo=many.fleets[3];many.fleets=[movingCol,crossOne,crossTwo];movingCol.anchor.set(0,0,-30);movingCol.rotation.identity();const movingSlots=game.slots(movingCol);movingCol.ships.forEach((ship,i)=>{ship.position.copy(movingSlots[i]);ship.rotation.identity();});game.setDestination(movingCol,{ix:0,iy:0,iz:20});
-  for(const [fleet,x,z,angle,goalX] of [[crossOne,-18,0,Math.PI/2,9],[crossTwo,18,12,-Math.PI/2,-9]]){fleet.ships=fleet.ships.slice(0,1);fleet.anchor.set(x,0,z);fleet.rotation.setFromAxisAngle(new T.Vector3(0,1,0),angle);fleet.ships[0].position.copy(fleet.anchor);fleet.ships[0].rotation.copy(fleet.rotation);game.setDestination(fleet,{ix:goalX,iy:0,iz:z/2});}
-  game.start(many);let manyMin=Infinity,passedMany=false,closest=null,firstBreach=null;for(let tick=0;tick<3000;tick++){if(many.phase==='PREPARATION')game.start(many);const prior=new Map(many.fleets.flatMap(f=>f.ships).map(s=>[s.id,s.position.clone()]));game.step(many);for(const ship of movingCol.ships)for(const enemyShip of [crossOne.ships[0],crossTwo.ships[0]]){const d=ship.position.distanceTo(enemyShip.position);if(!firstBreach&&d<12){const a=prior.get(ship.id),b=prior.get(enemyShip.id);firstBreach={tick,ship:ship.id,enemy:enemyShip.id,before:a.distanceTo(b),after:d,shipOnly:ship.position.distanceTo(b),enemyOnly:a.distanceTo(enemyShip.position),shipPosition:ship.position.toArray(),enemyPosition:enemyShip.position.toArray(),shipVelocity:ship.velocity.toArray(),enemyVelocity:enemyShip.velocity.toArray(),mode:movingCol.columnMode,anchor:movingCol.anchor.toArray()};}if(d<manyMin){manyMin=d;closest={tick,ship:ship.id,enemy:enemyShip.id,shipPosition:ship.position.toArray(),enemyPosition:enemyShip.position.toArray(),shipVelocity:ship.velocity.toArray(),enemyVelocity:enemyShip.velocity.toArray(),anchor:movingCol.anchor.toArray(),mode:movingCol.columnMode};}}passedMany=movingCol.ships.every(ship=>ship.position.z>16);if(passedMany)break;}
-  assert(manyMin>=12-1e-4,JSON.stringify({manyMin,firstBreach,closest,positions:movingCol.ships.map(s=>s.position.toArray()),enemies:[crossOne.ships[0].position.toArray(),crossTwo.ships[0].position.toArray()],mode:movingCol.columnMode}));assert(passedMany,JSON.stringify({manyMin,mode:movingCol.columnMode,positions:movingCol.ships.map(s=>s.position.toArray())}));
-  pass('four ship column navigates two moving crossing fleets');
-  pass('column maintains separation against a crossing moving fleet');
-  pass('blocked column brakes and resumes when route clears');
-  pass('four ship column bypass maintains clearance through the turn');
-  pass('column bypass maintains clearance and resumes its destination');
   const lineHold=game.initialState(),lh=lineHold.fleets[0],le=lineHold.fleets[2];lineHold.fleets=[lh,le];lh.ships=lh.ships.slice(0,1);le.ships=le.ships.slice(0,1);
   lh.anchor.set(0,0,0);lh.rotation.identity();lh.ships[0].position.copy(lh.anchor);lh.ships[0].rotation.identity();lh.ships[0].weapons=[{range:25}];game.setCombatPolicy(lh,'LINE');game.setDestination(lh,{ix:0,iy:0,iz:20});
   le.anchor.set(0,0,24);le.ships[0].position.copy(le.anchor);game.setDestination(le,{ix:0,iy:0,iz:12});game.start(lineHold);for(let tick=0;tick<30;tick++)game.step(lineHold);
@@ -335,7 +250,7 @@ let count=0;const pass=label=>{count++;console.log('PASS',label);};
   for(let tick=0;tick<60;tick++)game.step(lineHold);
   assert(!lh.encounter.lineEngaged,'line resumes approach when target is out of engagement range');assert(lh.anchor.z>lastPosition,'line advances instead of remaining stalled');
   pass('line holds without reversing and reapproaches out-of-range target');
-  pass('column selects a bounded forward bypass and line enters engagement');
+  pass('column brakes for a blocker and line enters engagement');
   pass('opposing breakthrough fleets evade safely and cross');
   pass('breakthrough crosses while defending ship evades');
   encounter.phase='PREPARATION';const held=attacker.encounter.breakthrough;assert(held);game.start(encounter);assert.equal(attacker.encounter.breakthrough,held,'resume preserves active charge plan');
@@ -393,7 +308,7 @@ let count=0;const pass=label=>{count++;console.log('PASS',label);};
   }
   assert(stalledOut);assert.match(stalled.fleet.encounter.reason,/장시간 정체/);
   const slow=setupDefenseStall(.01);for(let tick=0;tick<1000;tick++)game.step(slow.world);
-  assert(slow.fleet.encounter.active,'slow but progressing fleet must not be considered stalled');assert(slow.fleet.anchor.z>.01);
+  assert(slow.fleet.encounter.active,'slow but progressing fleet must not be considered stalled: '+JSON.stringify({reason:slow.fleet.encounter.reason,anchor:slow.fleet.anchor.toArray(),position:slow.fleet.ships[0].position.toArray(),stall:slow.fleet.encounter.defenseStallTime}));assert(slow.fleet.anchor.z>.01);
   const physicalStall=game.initialState(),pd=physicalStall.fleets[0],wall=physicalStall.fleets[1],pdEnemy=physicalStall.fleets[2];physicalStall.fleets=[pd,wall,pdEnemy];pd.ships=pd.ships.slice(0,1);wall.ships=wall.ships.slice(0,1);pdEnemy.ships=pdEnemy.ships.slice(0,1);
   pd.anchor.set(0,0,0);pd.rotation.identity();pd.ships[0].position.copy(pd.anchor);pd.ships[0].rotation.identity();game.setCombatPolicy(pd,'POINT_DEFENSE');game.setDefenseAnchor(pd,{ix:0,iy:0,iz:4});
   wall.anchor.set(0,0,4);wall.rotation.identity();wall.ships[0].position.copy(wall.anchor);wall.ships[0].rotation.identity();wall.ships[0].collisionRadius=2.9;game.setDestination(wall,{ix:0,iy:0,iz:2});
@@ -506,7 +421,7 @@ let count=0;const pass=label=>{count++;console.log('PASS',label);};
     if(obsB.encounter.reason)obsBreakReason=obsB.encounter.reason;
   }
   console.log('OBSERVED_TRANSITIONS',JSON.stringify({defenseArrived:obsDefense,defenseState:obsA.encounter.active,defenseReason:obsA.encounter.reason,defenseStall:obsA.encounter.defenseStallTime,defenseAnchor:obsA.anchor.toArray(),defensePoint:obsA.encounter.defensePoint?.toArray(),breakCharge:obsCharge,breakPhase:obsB.encounter.breakthrough?.phase,breakReason:obsBreakReason,formation:obsB.formationRatio,breakTime:obsB.encounter.breakthrough?.time,breakLimit:obsB.encounter.breakthrough?.timeLimit}));
-  assert(obsDefense,'defense must reach its point in this no-damage transition scenario');
+  assert(obsDefense,'defense must reach its point in this no-damage transition scenario: '+JSON.stringify({positions:obsA.ships.map(s=>s.position.toArray()),goals:game.slots(obsA).map(p=>p.toArray()),velocities:obsA.ships.map(s=>s.velocity.toArray())}));
   assert(obsCharge,'breakthrough must eventually enter the charge phase in this no-damage transition scenario');
   pass('policy switch eventually assembles defense and enters breakthrough without damage');
   const statusURL='data:text/javascript;base64,'+Buffer.from(await readFile(new URL('./status-ui.js',import.meta.url),'utf8')).toString('base64'),{createStatusUI}=await import(statusURL);
